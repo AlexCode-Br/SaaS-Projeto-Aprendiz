@@ -14,21 +14,21 @@ async function setupAdminUser() {
     const salt = await bcrypt.genSalt(10);
     const senha_hash = await bcrypt.hash(plainPassword, salt);
 
-    // 1. Verificar se o usuário administrador já existe (TABELA CORRIGIDA PARA MINÚSCULAS)
-    const userExists = await db.query('SELECT * FROM usuarios WHERE email = $1', [adminEmail]);
+    // 1. Verificar se o usuário administrador já existe
+    const userExists = await db.query('SELECT * FROM Usuarios WHERE email = $1', [adminEmail]);
 
     if (userExists.rows.length > 0) {
-      // Se o usuário existir, atualiza a senha dele para garantir que está correta (TABELA CORRIGIDA PARA MINÚSCULAS)
+      // Se o usuário existir, atualiza a senha dele para garantir que está correta
       await db.query(
-        'UPDATE usuarios SET senha_hash = $1 WHERE email = $2',
+        'UPDATE Usuarios SET senha_hash = $1 WHERE email = $2',
         [senha_hash, adminEmail]
       );
       console.log('Senha do utilizador administrador foi atualizada com sucesso!');
     } else {
-      // Se não existir, insere o novo usuário administrador (TABELA CORRIGIDA PARA MINÚSCULAS)
+      // Se não existir, insere o novo usuário administrador
       await db.query(
-        `INSERT INTO usuarios (nome, email, senha_hash, papel) 
-         VALUES ($1, $2, $3, $4)`,
+        `INSERT INTO Usuarios (nome, email, senha_hash, papel) 
+        VALUES ($1, $2, $3, $4)`,
         ['Admin Regional', adminEmail, senha_hash, 'gestor']
       );
       console.log('Utilizador administrador criado com sucesso!');

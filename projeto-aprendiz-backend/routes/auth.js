@@ -8,7 +8,7 @@ const router = express.Router();
 const authController = require('../controllers/authController');
 
 // Define a rota POST para /login.
-// Quando uma requisição POST for feita para /api/login,
+// Quando uma requisição POST for feita para /api/auth/login,
 // a função 'login' do authController será executada.
 router.post('/login', authController.login);
 
