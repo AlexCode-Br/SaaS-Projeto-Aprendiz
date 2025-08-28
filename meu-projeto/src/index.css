@@ -1,0 +1,103 @@
+/* Importação da Fonte do Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+
+/* Diretivas do Tailwind CSS */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definição das Variáveis de Cor (Tema Claro) e Sombras */
+:root {
+    --color-primary: #b71c1c;
+    --color-primary-dark: #880e0e;
+    --color-primary-light: #d32f2f;
+
+    --color-bg-start: #FFFFFF;
+    --color-bg-end: #F8F9FA;
+    --color-surface: #FFFFFF;
+    --color-border: #E9ECEF;
+    --color-text-default: #212529;
+    --color-text-muted: #6C757D;
+    --color-text-inverse: #FFFFFF;
+
+    --color-success: #198754;
+    --color-danger: #DC3545;
+    --color-warning: #FFC107;
+
+    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.07);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+/* Sobrescreve as Variáveis para o Tema Escuro */
+.dark {
+    --color-bg-start: #18191a;
+    --color-bg-end: #1f2021;
+    --color-surface: #242526;
+    --color-border: #3a3b3d;
+    --color-text-default: #E4E6EB;
+    --color-text-muted: #B0B3B8;
+}
+
+/* Estilos Base para a Aplicação */
+@layer base {
+    body {
+        font-family: 'Montserrat', sans-serif;
+        background: linear-gradient(180deg, var(--color-bg-start) 0%, var(--color-bg-end) 100%);
+        color: var(--color-text-default);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        min-height: 100vh;
+    }
+}
+
+/* Animações reutilizáveis */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translate3d(0, 20px, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+.fade-in-up {
+    animation: fadeInUp 0.5s ease-out forwards;
+    opacity: 0;
+}
+
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+
+/* Estilos para a barra de rolagem (opcional, mas melhora a estética) */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #f1f1f1; }
+::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #aaa; }
+
+.dark ::-webkit-scrollbar-track { background: #2d2d2d; }
+.dark ::-webkit-scrollbar-thumb { background: #555; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #777; }
+
+
+/* --- ADIÇÃO PARA CORRIGIR O TOGGLE --- */
+@layer components {
+    .toggle-checkbox {
+        @apply transition-transform duration-300 ease-in-out;
+    }
+    .toggle-checkbox:checked {
+        transform: translateX(calc(100% - 4px)); /* Move o círculo para a direita */
+        @apply border-primary;
+    }
+    .toggle-checkbox:checked + .toggle-label {
+        @apply bg-primary;
+    }
+    .toggle-label {
+        @apply transition-colors duration-300 ease-in-out;
+    }
+}
+/* --- FIM DA ADIÇÃO --- */
