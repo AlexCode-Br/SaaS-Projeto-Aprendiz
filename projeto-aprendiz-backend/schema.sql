@@ -1,5 +1,5 @@
 -- Apaga as tabelas existentes para garantir um estado limpo (opcional, útil em desenvolvimento)
-DROP TABLE IF EXISTS Frequencias, Inscricoes, Professores_Cursos, TicketsSuporte, Professores, Alunos, Cursos, Usuarios;
+DROP TABLE IF EXISTS frequencias, inscricoes, professores_cursos, ticketsuporte, informativos, professores, alunos, cursos, usuarios;
 
 -- Apaga os tipos ENUM existentes (se aplicável)
 DROP TYPE IF EXISTS papel_usuario;
@@ -14,7 +14,7 @@ CREATE TYPE status_frequencia AS ENUM ('presente', 'falta', 'justificada');
 CREATE TYPE status_ticket AS ENUM ('aberto', 'pendente', 'resolvido');
 
 -- Tabela de Usuários: armazena as credenciais de login e o tipo de usuário.
-CREATE TABLE Usuarios (
+CREATE TABLE usuarios (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -25,7 +25,7 @@ CREATE TABLE Usuarios (
 );
 
 -- Tabela de Alunos: armazena os dados cadastrais dos alunos.
-CREATE TABLE Alunos (
+CREATE TABLE alunos (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -38,19 +38,19 @@ CREATE TABLE Alunos (
 );
 
 -- Tabela de Professores: vincula um usuário ao perfil de professor.
-CREATE TABLE Professores (
+CREATE TABLE professores (
     id SERIAL PRIMARY KEY,
     usuario_id INT UNIQUE NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT fk_usuario
         FOREIGN KEY(usuario_id) 
-        REFERENCES Usuarios(id)
+        REFERENCES usuarios(id)
         ON DELETE CASCADE
 );
 
 -- Tabela de Cursos: armazena os cursos oferecidos.
-CREATE TABLE Cursos (
+CREATE TABLE cursos (
     id SERIAL PRIMARY KEY,
     nome_curso VARCHAR(255) NOT NULL,
     local VARCHAR(255) NOT NULL,
@@ -59,40 +59,40 @@ CREATE TABLE Cursos (
 );
 
 -- Tabela de Ligação Professores_Cursos: mapeia quais professores lecionam quais cursos.
-CREATE TABLE Professores_Cursos (
+CREATE TABLE professores_cursos (
     id SERIAL PRIMARY KEY,
     professor_id INT NOT NULL,
     curso_id INT NOT NULL,
     CONSTRAINT fk_professor
         FOREIGN KEY(professor_id) 
-        REFERENCES Professores(id)
+        REFERENCES professores(id)
         ON DELETE CASCADE,
     CONSTRAINT fk_curso
         FOREIGN KEY(curso_id) 
-        REFERENCES Cursos(id)
+        REFERENCES cursos(id)
         ON DELETE CASCADE,
     UNIQUE (professor_id, curso_id) -- Garante que um professor não seja associado ao mesmo curso duas vezes
 );
 
 -- Tabela de Inscrições: registra a matrícula de um aluno em um curso.
-CREATE TABLE Inscricoes (
+CREATE TABLE inscricoes (
     id SERIAL PRIMARY KEY,
     aluno_id INT NOT NULL,
     curso_id INT NOT NULL,
     data_inscricao TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT fk_aluno
         FOREIGN KEY(aluno_id) 
-        REFERENCES Alunos(id)
+        REFERENCES alunos(id)
         ON DELETE CASCADE,
     CONSTRAINT fk_curso
         FOREIGN KEY(curso_id) 
-        REFERENCES Cursos(id)
+        REFERENCES cursos(id)
         ON DELETE CASCADE,
     UNIQUE (aluno_id, curso_id) -- Garante que um aluno não se inscreva no mesmo curso duas vezes
 );
 
 -- Tabela de Frequências: armazena o registro de presença dos alunos nas aulas.
-CREATE TABLE Frequencias (
+CREATE TABLE frequencias (
     id SERIAL PRIMARY KEY,
     aluno_id INT NOT NULL,
     curso_id INT NOT NULL,
@@ -101,17 +101,17 @@ CREATE TABLE Frequencias (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT fk_aluno
         FOREIGN KEY(aluno_id) 
-        REFERENCES Alunos(id)
+        REFERENCES alunos(id)
         ON DELETE CASCADE,
     CONSTRAINT fk_curso
         FOREIGN KEY(curso_id) 
-        REFERENCES Cursos(id)
+        REFERENCES cursos(id)
         ON DELETE CASCADE,
     UNIQUE (aluno_id, curso_id, data_aula) -- Garante um único registro de frequência por aluno, por curso, por dia
 );
 
 -- Tabela de Informativos: armazena os comunicados gerais.
-CREATE TABLE Informativos (
+CREATE TABLE informativos (
     id SERIAL PRIMARY KEY,
     titulo VARCHAR(255) NOT NULL,
     conteudo TEXT NOT NULL,
@@ -123,7 +123,7 @@ CREATE TABLE Informativos (
 );
 
 -- Tabela de Tickets de Suporte: gerencia as solicitações de suporte dos usuários.
-CREATE TABLE TicketsSuporte (
+CREATE TABLE ticketsuporte (
     id SERIAL PRIMARY KEY,
     usuario_id INT NOT NULL,
     assunto VARCHAR(255) NOT NULL,
@@ -133,6 +133,6 @@ CREATE TABLE TicketsSuporte (
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT fk_usuario
         FOREIGN KEY(usuario_id) 
-        REFERENCES Usuarios(id)
+        REFERENCES usuarios(id)
         ON DELETE CASCADE
 );

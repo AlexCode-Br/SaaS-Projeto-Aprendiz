@@ -15,8 +15,8 @@ exports.login = async (req, res) => {
   }
 
   try {
-    // 2. Busca o usuário no banco de dados pelo email
-    const result = await db.query('SELECT * FROM Usuarios WHERE email = $1', [email]);
+    // 2. Busca o usuário no banco de dados pelo email (TABELA CORRIGIDA PARA MINÚSCULAS)
+    const result = await db.query('SELECT * FROM usuarios WHERE email = $1', [email]);
     const usuario = result.rows[0];
 
     // Se o usuário não for encontrado, retorna erro de credenciais inválidas
