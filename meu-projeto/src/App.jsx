@@ -4,6 +4,7 @@ import { AuthProvider, AuthContext } from './contexts/AuthContext.jsx';
 import { ToastProvider } from './contexts/ToastContext.jsx';
 import MainLayout from './layouts/MainLayout.jsx';
 import PrivateRoute from './components/PrivateRoute.jsx';
+import './index.css'; // Importando o CSS global
 
 // --- Páginas ---
 
@@ -29,10 +30,9 @@ import ProfessorInformativos from './pages/professor/ProfessorInformativos.jsx';
 import ProfessorSuporte from './pages/professor/ProfessorSuporte.jsx';
 
 // Comum
-import Configuracoes from './pages/gestor/Configuracoes.jsx'; // Usando o mesmo para ambos por simplicidade
+import Configuracoes from './pages/gestor/Configuracoes.jsx';
 import ProfessorConfiguracoes from './pages/professor/ProfessorConfiguracoes.jsx';
 
-// --- Componentes Auxiliares ---
 
 const NotFound = () => (
     <div className="flex items-center justify-center h-full">
@@ -43,7 +43,6 @@ const NotFound = () => (
     </div>
 );
 
-// Redireciona o usuário para o dashboard correto após o login
 const DashboardRedirector = () => {
     const { user } = React.useContext(AuthContext);
     if (!user) return <Navigate to="/login" replace />;
@@ -54,9 +53,6 @@ const DashboardRedirector = () => {
         
     return <Navigate to={dashboardPath} replace />;
 };
-
-
-// --- Roteador Principal ---
 
 const AppRoutes = () => {
     const { user } = React.useContext(AuthContext);

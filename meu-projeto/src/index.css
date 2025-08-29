@@ -11,7 +11,6 @@
     --color-primary: #b71c1c;
     --color-primary-dark: #880e0e;
     --color-primary-light: #d32f2f;
-
     --color-bg-start: #FFFFFF;
     --color-bg-end: #F8F9FA;
     --color-surface: #FFFFFF;
@@ -19,11 +18,9 @@
     --color-text-default: #212529;
     --color-text-muted: #6C757D;
     --color-text-inverse: #FFFFFF;
-
     --color-success: #198754;
     --color-danger: #DC3545;
     --color-warning: #FFC107;
-
     --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.07);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
 }
@@ -39,26 +36,21 @@
 }
 
 /* Estilos Base para a Aplicação */
-@layer base {
-    body {
-        font-family: 'Montserrat', sans-serif;
-        background: linear-gradient(180deg, var(--color-bg-start) 0%, var(--color-bg-end) 100%);
-        color: var(--color-text-default);
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-        min-height: 100vh;
-    }
+body {
+    font-family: 'Montserrat', sans-serif;
+    background: linear-gradient(180deg, var(--color-bg-start) 0%, var(--color-bg-end) 100%);
+    color: var(--color-text-default);
 }
 
 /* Animações reutilizáveis */
 @keyframes fadeInUp {
     from {
         opacity: 0;
-        transform: translate3d(0, 20px, 0);
+        transform: translateY(20px);
     }
     to {
         opacity: 1;
-        transform: translate3d(0, 0, 0);
+        transform: translateY(0);
     }
 }
 
@@ -77,19 +69,57 @@
 .dark ::-webkit-scrollbar-thumb { background: #555; }
 .dark ::-webkit-scrollbar-thumb:hover { background: #777; }
 
-/* Componente de Toggle Switch customizado */
-@layer components {
-    .toggle-checkbox {
-        @apply transition-transform duration-300 ease-in-out;
-    }
-    .toggle-checkbox:checked {
-        transform: translateX(calc(100% - 4px));
-        @apply border-primary;
-    }
-    .toggle-checkbox:checked + .toggle-label {
-        @apply bg-primary;
-    }
-    .toggle-label {
-        @apply transition-colors duration-300 ease-in-out;
-    }
+/* Estilos adicionais do protótipo */
+#sidebar {
+    background: linear-gradient(180deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+    transition: transform 0.3s ease-in-out;
 }
+
+.delay-100 { animation-delay: 0.1s; } .delay-200 { animation-delay: 0.2s; } .delay-300 { animation-delay: 0.3s; } .delay-400 { animation-delay: 0.4s; } .delay-500 { animation-delay: 0.5s; } .delay-600 { animation-delay: 0.6s; } .delay-700 { animation-delay: 0.7s; }
+
+.interactive-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+}
+
+.dark .interactive-card:hover {
+    background-color: #3a3b3c;
+}
+
+.interactive-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-md);
+    background-color: #f3f4f6;
+}
+
+.modal { transition: opacity 0.3s ease; }
+.modal .modal-content { transition: transform 0.3s ease; }
+
+.sidebar-open { transform: translateX(0) !important; }
+#sidebar-overlay { transition: opacity 0.3s ease-in-out; }
+
+.icon-hamburger { display: block; }
+.icon-close { display: none; }
+.menu-open .icon-hamburger { display: none; }
+.menu-open .icon-close { display: block; }
+
+/* OVERRIDES PARA TEMA ESCURO */
+.dark .bg-surface\/80 { background-color: rgba(36, 37, 38, 0.8); }
+.dark .bg-gray-50 { background-color: #3a3b3d; }
+.dark .hover\:bg-gray-50:hover { background-color: #484a4b; }
+.dark .hover\:bg-gray-100:hover { background-color: rgba(255, 255, 255, 0.08); }
+.dark .text-gray-700 { color: var(--color-text-default); }
+.dark .text-gray-900 { color: var(--color-text-default); }
+.dark .text-gray-500 { color: var(--color-text-muted); }
+.dark .text-gray-400 { color: var(--color-text-muted); }
+.dark .hover\:text-gray-600:hover { color: var(--color-text-default); }
+.dark #profile-dropdown, .dark .modal-content { background-color: var(--color-surface); }
+.dark input {
+    background-color: transparent;
+    color: var(--color-text-default);
+}
+.dark input::placeholder { color: var(--color-text-muted); }
+.dark .bg-gray-200 { background-color: #4a4b4c; }
+.dark .hover\:bg-gray-200:hover { background-color: #636465; }
+.dark .hover\:bg-gray-300:hover { background-color: #76787a; }
+.dark .bg-white { background-color: var(--color-surface); }
+.dark .border-gray-300 { border-color: #55585a; }

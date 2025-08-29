@@ -1,165 +1,164 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import api from '../../services/api';
-import { useToast } from '../../contexts/ToastContext';
+import React, { useState, useMemo } from 'react';
+import { exportToPdf } from '../../utils/exportUtils.js';
 
-// --- Componentes ---
-import CustomSelect from '../../components/CustomSelect';
-import DynamicReportTable from '../../components/DynamicReportTable'; // Um novo componente para tabelas dinâmicas
-import { exportToCSV, exportToPDF } from '../../utils/exportUtils'; // Funções de exportação
+// --- Dados Mockados (extraídos do protótipo) ---
+const frequencyReportData = [
+    { curso: 'Violão I', aluno: 'João Pereira', professor: 'João Silva', local: 'Pituba', frequencia: '95%' },
+    { curso: 'Violão I', aluno: 'Ricardo Alves', professor: 'João Silva', local: 'Pituba', frequencia: '68%' },
+    { curso: 'Teclado', aluno: 'Ana Beatriz', professor: 'Maria Oliveira', local: 'Brotas', frequencia: '88%' },
+    { curso: 'Bateria', aluno: 'Pedro Almeida', professor: 'Carlos Souza', local: 'Lauro de Freitas', frequencia: '92%' },
+    { curso: 'Canto Coral', aluno: 'Maria Clara', professor: 'Ana Costa', local: 'Pituba', frequencia: '100%' },
+    // Adicione mais dados conforme necessário para testar a paginação
+];
 
-const Relatorios = () => {
-    // --- Estados ---
-    const [activeTab, setActiveTab] = useState('frequencia');
-    const [loading, setLoading] = useState(false);
-    const [reportData, setReportData] = useState([]);
-    
-    // Estados dos Filtros
-    const [filters, setFilters] = useState({
-        startDate: '',
-        endDate: '',
-        cursoId: null,
-        professorId: null,
-    });
+const dropoutReportData = [
+    { curso: 'Violino', aluno: 'Lucas Guimarães', dataInscricao: '01/02/2025', dataEvasao: '15/05/2025', motivo: 'Mudança de cidade' },
+    { curso: 'Saxofone', aluno: 'Fernando Mendes', dataInscricao: '10/02/2025', dataEvasao: '22/04/2025', motivo: 'Conflito de horários' },
+    { curso: 'Contrabaixo', aluno: 'Gustavo Rocha', dataInscricao: '15/01/2025', dataEvasao: '30/03/2025', motivo: 'Questões pessoais' },
+];
 
-    // Opções para os filtros de select
-    const [cursoOptions, setCursoOptions] = useState([]);
-    const [professorOptions, setProfessorOptions] = useState([]);
+const allCourses = ['Violão I', 'Teclado', 'Bateria', 'Canto Coral', 'Violino', 'Saxofone', 'Contrabaixo'];
+const allLocais = ['Pituba', 'Brotas', 'Lauro de Freitas', 'Remoto'];
+const allProfessores = ['João Silva', 'Maria Oliveira', 'Carlos Souza', 'Ana Costa', 'Pedro Santos'];
 
-    const { showToast } = useToast();
+// --- Componente Reutilizável para Tabela e Paginação ---
+const ReportTable = ({ headers, data, itemsPerPage = 5 }) => {
+    const [currentPage, setCurrentPage] = useState(1);
+    const totalPages = Math.ceil(data.length / itemsPerPage);
 
-    // --- Carregamento de Opções para Filtros ---
-    useEffect(() => {
-        const fetchFilterOptions = async () => {
-            try {
-                const [cursosRes, professoresRes] = await Promise.all([
-                    api.get('/cursos'),
-                    api.get('/professores?limit=1000') // Pega todos para o filtro
-                ]);
-                setCursoOptions(cursosRes.data.cursos.map(c => ({ value: c.id, label: c.nome })));
-                setProfessorOptions(professoresRes.data.professores.map(p => ({ value: p.id, label: p.nome })));
-            } catch (error) {
-                showToast('Erro ao carregar filtros.', 'error');
-            }
-        };
-        fetchFilterOptions();
-    }, [showToast]);
+    const paginatedData = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return data.slice(startIndex, startIndex + itemsPerPage);
+    }, [data, currentPage, itemsPerPage]);
 
-    // --- Geração do Relatório ---
-    const generateReport = useCallback(async () => {
-        setLoading(true);
-        setReportData([]);
-        
-        // ** PONTO CRÍTICO DA CORREÇÃO **
-        // A URL agora é dinâmica com base na aba ativa (frequencia ou evasao)
-        const reportUrl = `/relatorios/${activeTab}`;
-
-        // Monta os parâmetros da query com base nos filtros
-        const params = {
-            data_inicio: filters.startDate,
-            data_fim: filters.endDate,
-            curso_id: filters.cursoId?.value,
-            professor_id: filters.professorId?.value,
-        };
-
-        try {
-            const response = await api.get(reportUrl, { params });
-            setReportData(response.data);
-            if (response.data.length === 0) {
-                showToast('Nenhum dado encontrado para os filtros selecionados.', 'info');
-            }
-        } catch (error) {
-            showToast('Erro ao gerar relatório.', 'error');
-            console.error(error);
-        } finally {
-            setLoading(false);
-        }
-    }, [activeTab, filters, showToast]);
-    
-    // --- Handlers ---
-    const handleFilterChange = (name, value) => {
-        setFilters(prev => ({ ...prev, [name]: value }));
-    };
-
-    const handleExport = (format) => {
-        if (reportData.length === 0) {
-            showToast('Não há dados para exportar.', 'warning');
-            return;
-        }
-        const headers = Object.keys(reportData[0]).map(key => ({
-            label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-            key: key
-        }));
-        
-        if (format === 'csv') {
-            exportToCSV(reportData, headers, `relatorio_${activeTab}`);
-        } else if (format === 'pdf') {
-            exportToPDF(reportData, headers, `Relatório de ${activeTab}`);
-        }
-    };
-    
-    // Define as colunas da tabela com base no relatório ativo
-    const tableColumns = {
-        frequencia: [
-            { header: 'Aluno', accessor: 'nome_aluno' },
-            { header: 'Curso', accessor: 'nome_curso' },
-            { header: 'Data', accessor: 'data_aula' },
-            { header: 'Status', accessor: 'status' }
-        ],
-        evasao: [
-            { header: 'Curso', accessor: 'nome_curso' },
-            { header: 'Total de Alunos', accessor: 'total_alunos' },
-            { header: 'Alunos Evadidos', accessor: 'alunos_evadidos' },
-            { header: 'Taxa de Evasão (%)', accessor: 'taxa_evasao' }
-        ]
-    };
-    
     return (
-        <div>
-            <h1 className="text-3xl font-bold text-text-default mb-6">Relatórios</h1>
-
-            {/* Abas de Seleção de Relatório */}
-            <div className="mb-6 border-b border-border">
-                <nav className="flex space-x-4">
-                    <button onClick={() => setActiveTab('frequencia')} className={`py-2 px-4 font-semibold ${activeTab === 'frequencia' ? 'border-b-2 border-primary text-primary' : 'text-text-muted'}`}>
-                        Frequência de Alunos
-                    </button>
-                    <button onClick={() => setActiveTab('evasao')} className={`py-2 px-4 font-semibold ${activeTab === 'evasao' ? 'border-b-2 border-primary text-primary' : 'text-text-muted'}`}>
-                        Taxa de Evasão
-                    </button>
-                </nav>
+        <div className="mt-4">
+            <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left text-text-default">
+                    <thead className="bg-gray-50 dark:bg-surface/30 text-xs uppercase text-text-muted">
+                        <tr>
+                            {headers.map(header => <th key={header} className="px-6 py-3">{header}</th>)}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {paginatedData.map((row, rowIndex) => (
+                            <tr key={rowIndex} className="border-b border-border hover:bg-gray-50 dark:hover:bg-gray-50/10">
+                                {Object.values(row).map((cell, cellIndex) => (
+                                    <td key={cellIndex} className="px-6 py-4">{cell}</td>
+                                ))}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
-
-            {/* Filtros */}
-            <div className="p-6 bg-surface rounded-lg shadow mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <input type="date" name="startDate" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="w-full px-3 py-2 border rounded-md bg-surface border-border focus:outline-none focus:ring-2 focus:ring-primary"/>
-                    <input type="date" name="endDate" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="w-full px-3 py-2 border rounded-md bg-surface border-border focus:outline-none focus:ring-2 focus:ring-primary"/>
-                    <CustomSelect options={cursoOptions} value={filters.cursoId} onChange={(val) => handleFilterChange('cursoId', val)} placeholder="Filtrar por Curso"/>
-                    <CustomSelect options={professorOptions} value={filters.professorId} onChange={(val) => handleFilterChange('professorId', val)} placeholder="Filtrar por Professor"/>
-                </div>
-                <div className="mt-4 flex justify-end">
-                    <button onClick={generateReport} disabled={loading} className="px-6 py-2 text-white bg-primary rounded-md hover:bg-primary-dark disabled:opacity-50">
-                        {loading ? 'Gerando...' : 'Gerar Relatório'}
-                    </button>
-                </div>
-            </div>
-
-            {/* Resultados */}
-            <div className="bg-surface rounded-lg shadow">
-                <div className="p-4 flex justify-between items-center border-b border-border">
-                    <h2 className="text-xl font-semibold">Resultados</h2>
-                    <div className="space-x-2">
-                        <button onClick={() => handleExport('csv')} className="px-4 py-2 text-sm text-primary bg-primary/10 border border-primary/20 rounded-md hover:bg-primary/20">Exportar CSV</button>
-                        <button onClick={() => handleExport('pdf')} className="px-4 py-2 text-sm text-primary bg-primary/10 border border-primary/20 rounded-md hover:bg-primary/20">Exportar PDF</button>
+            {totalPages > 1 && (
+                <div className="p-4 flex justify-between items-center border-t border-border">
+                    <span className="text-sm text-text-muted">Página {currentPage} de {totalPages}</span>
+                    <div className="flex items-center space-x-1">
+                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>&lt;</button>
+                        {[...Array(totalPages).keys()].map(i => (
+                            <button key={i} onClick={() => setCurrentPage(i + 1)} className={currentPage === i + 1 ? 'font-bold' : ''}>{i + 1}</button>
+                        ))}
+                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>&gt;</button>
                     </div>
                 </div>
-                <DynamicReportTable
-                    columns={tableColumns[activeTab]}
-                    data={reportData}
-                    loading={loading}
-                />
-            </div>
+            )}
         </div>
+    );
+};
+
+
+// --- Componente Principal ---
+const Relatorios = () => {
+    // State para Relatório de Frequência
+    const [freqFilters, setFreqFilters] = useState({ curso: '', local: '', professor: '', dataInicio: '', dataFim: '' });
+    const [generatedFreqData, setGeneratedFreqData] = useState(null);
+
+    // State para Relatório de Evasão
+    const [dropoutFilters, setDropoutFilters] = useState({ curso: '', motivo: '', dataInicio: '', dataFim: '' });
+    const [generatedDropoutData, setGeneratedDropoutData] = useState(null);
+
+    const handleGenerateFrequencyReport = () => {
+        // Lógica de filtro (aqui apenas simulada, mas pode ser complexa)
+        setGeneratedFreqData(frequencyReportData);
+    };
+
+    const handleGenerateDropoutReport = () => {
+        // Lógica de filtro
+        setGeneratedDropoutData(dropoutReportData);
+    };
+
+    const handleExportFrequency = () => {
+        const headers = ["Curso", "Aluno", "Professor", "Local", "Frequência (%)"];
+        const data = generatedFreqData.map(Object.values);
+        exportToPdf("Relatório de Frequência", headers, data);
+    };
+    
+    const handleExportDropout = () => {
+        const headers = ["Curso", "Aluno", "Data Inscrição", "Data Evasão", "Motivo"];
+        const data = generatedDropoutData.map(Object.values);
+        exportToPdf("Relatório de Evasão", headers, data);
+    };
+
+    return (
+        <>
+            <h2 className="text-2xl font-bold text-text-default mb-6">Relatórios Gerenciais</h2>
+
+            {/* Painel de Relatório de Frequência */}
+            <div className="bg-surface rounded-lg shadow-sm border border-border mb-8">
+                <div className="p-4 md:p-6 border-b border-border">
+                    <h3 className="text-lg font-semibold text-text-default">Relatório de Frequência</h3>
+                    <p className="text-sm text-text-muted mt-1">Filtre para visualizar a frequência dos alunos por período, curso, local ou professor.</p>
+                </div>
+                <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Filtros aqui */}
+                    <select className="w-full px-3 py-2 border border-border rounded-lg bg-surface"><option>Todos os Cursos</option>{allCourses.map(c => <option key={c}>{c}</option>)}</select>
+                    <select className="w-full px-3 py-2 border border-border rounded-lg bg-surface"><option>Todos os Locais</option>{allLocais.map(l => <option key={l}>{l}</option>)}</select>
+                    <select className="w-full px-3 py-2 border border-border rounded-lg bg-surface"><option>Todos os Professores</option>{allProfessores.map(p => <option key={p}>{p}</option>)}</select>
+                    <input type="date" className="w-full px-3 py-2 border border-border rounded-lg bg-surface" />
+                    <input type="date" className="w-full px-3 py-2 border border-border rounded-lg bg-surface" />
+                </div>
+                <div className="p-4 md:px-6 flex justify-end items-center border-t border-border bg-gray-50 dark:bg-surface/30">
+                    <button onClick={handleGenerateFrequencyReport} className="px-6 py-2 bg-primary text-white font-semibold rounded-lg shadow-sm hover:bg-primary-dark">Gerar</button>
+                </div>
+                {generatedFreqData && (
+                    <div className="p-4 md:p-6 border-t border-border">
+                        <div className="flex justify-between items-center mb-4">
+                            <h4 className="font-semibold">Resultados</h4>
+                            <button onClick={handleExportFrequency} className="px-4 py-2 text-sm bg-gray-200 dark:bg-gray-600 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500">Exportar</button>
+                        </div>
+                        <ReportTable headers={["Curso", "Aluno", "Professor", "Local", "Frequência (%)"]} data={generatedFreqData} />
+                    </div>
+                )}
+            </div>
+
+            {/* Painel de Relatório de Evasão */}
+            <div className="bg-surface rounded-lg shadow-sm border border-border">
+                <div className="p-4 md:p-6 border-b border-border">
+                    <h3 className="text-lg font-semibold text-text-default">Relatório de Evasão</h3>
+                    <p className="text-sm text-text-muted mt-1">Analise os motivos de evasão dos alunos por período ou curso.</p>
+                </div>
+                 <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Filtros aqui */}
+                    <select className="w-full px-3 py-2 border border-border rounded-lg bg-surface"><option>Todos os Cursos</option>{allCourses.map(c => <option key={c}>{c}</option>)}</select>
+                    <select className="w-full px-3 py-2 border border-border rounded-lg bg-surface"><option>Todos os Motivos</option><option>Mudança de cidade</option></select>
+                     <input type="date" className="w-full px-3 py-2 border border-border rounded-lg bg-surface" />
+                    <input type="date" className="w-full px-3 py-2 border border-border rounded-lg bg-surface" />
+                </div>
+                <div className="p-4 md:px-6 flex justify-end items-center border-t border-border bg-gray-50 dark:bg-surface/30">
+                    <button onClick={handleGenerateDropoutReport} className="px-6 py-2 bg-primary text-white font-semibold rounded-lg shadow-sm hover:bg-primary-dark">Gerar</button>
+                </div>
+                 {generatedDropoutData && (
+                    <div className="p-4 md:p-6 border-t border-border">
+                        <div className="flex justify-between items-center mb-4">
+                            <h4 className="font-semibold">Resultados</h4>
+                            <button onClick={handleExportDropout} className="px-4 py-2 text-sm bg-gray-200 dark:bg-gray-600 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500">Exportar</button>
+                        </div>
+                        <ReportTable headers={["Curso", "Aluno", "Data Inscrição", "Data Evasão", "Motivo"]} data={generatedDropoutData} />
+                    </div>
+                )}
+            </div>
+        </>
     );
 };
 

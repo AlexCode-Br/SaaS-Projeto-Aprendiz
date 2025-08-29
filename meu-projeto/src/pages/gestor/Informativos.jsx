@@ -1,202 +1,136 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import api from '../../services/api';
+import React, { useState, useMemo } from 'react';
+import InformativoModal from '../../components/InformativoModal';
+import ConfirmationModal from '../../components/ConfirmationModal';
+import { useToast } from '../../contexts/ToastContext';
 
-// --- Ícones SVG ---
-const AddIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>;
-const CloseIcon = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>;
+// Mock data
+const initialInformativosData = [
+    { id: 1, titulo: 'Início das Inscrições 2025', categoria: 'Inscrições', data: '28/08/2025', hora: '09:00', lido: 120, confirmacoes: 0, fixado: true, conteudo: 'As inscrições para o ano letivo de 2025 estão oficialmente abertas! Garanta sua vaga nos cursos desejados.', confirmacao: false },
+    { id: 2, titulo: 'Apresentação de Fim de Ano', categoria: 'Eventos', data: '20/07/2025', hora: '19:00', lido: 150, confirmacoes: 135, fixado: false, conteudo: 'Convidamos todos os alunos, pais e responsáveis para nossa apresentação de fim de ano. Confirme sua presença.', confirmacao: true, linkUrl: '#', linkTexto: 'Confirmar Presença' },
+    { id: 3, titulo: 'Manutenção da Plataforma', categoria: 'Geral', data: '15/07/2025', hora: '23:00', lido: 200, confirmacoes: 0, fixado: false, conteudo: 'A plataforma ficará indisponível para manutenção programada no dia 15/07, das 23:00 às 00:00.', confirmacao: false },
+    { id: 4, titulo: 'Reunião Urgente de Professores', categoria: 'Urgente', data: '10/07/2025', hora: '18:00', lido: 45, confirmacoes: 45, fixado: false, conteudo: 'Reunião obrigatória para todos os professores sobre o novo cronograma. Favor confirmar a leitura.', confirmacao: true },
+];
 
-// --- Componente InfoModal ---
-const InfoModal = ({ isOpen, onClose, onSave }) => {
-    const [formData, setFormData] = useState({
-        titulo: '',
-        conteudo: '',
-        tipo: 'Geral',
-    });
-    const [errors, setErrors] = useState({});
-
-    useEffect(() => {
-        // Reset form when modal opens
-        if (isOpen) {
-            setFormData({ titulo: '', conteudo: '', tipo: 'Geral' });
-            setErrors({});
-        }
-    }, [isOpen]);
-
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
-
-    const validateForm = () => {
-        const newErrors = {};
-        if (!formData.titulo.trim()) newErrors.titulo = 'O título é obrigatório.';
-        if (!formData.conteudo.trim()) newErrors.conteudo = 'O conteúdo é obrigatório.';
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (validateForm()) {
-            onSave(formData);
-        }
-    };
-
-    if (!isOpen) return null;
-
-    return (
-        <div className="modal fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 opacity-100 px-4">
-            <div className="modal-content bg-white dark:bg-surface rounded-lg shadow-xl w-full max-w-lg transform scale-100">
-                <div className="flex justify-between items-center p-6 border-b border-border">
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-text-default">Criar Novo Informativo</h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-text-default"><CloseIcon /></button>
-                </div>
-                <form onSubmit={handleSubmit} noValidate>
-                    <div className="p-6 max-h-[70vh] overflow-y-auto space-y-4">
-                        <div>
-                            <label htmlFor="info-title" className="block text-sm font-medium text-text-default mb-1">Título</label>
-                            <input type="text" id="info-title" name="titulo" value={formData.titulo} onChange={handleChange} className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition bg-transparent ${errors.titulo ? 'border-danger' : 'border-border'}`} />
-                            {errors.titulo && <p className="text-danger text-xs mt-1">{errors.titulo}</p>}
-                        </div>
-                        <div>
-                            <label htmlFor="info-type" className="block text-sm font-medium text-text-default mb-1">Tipo de Informativo</label>
-                            <select id="info-type" name="tipo" value={formData.tipo} onChange={handleChange} className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition bg-transparent">
-                                <option>Geral</option>
-                                <option>Urgente</option>
-                                <option>Evento</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label htmlFor="info-content" className="block text-sm font-medium text-text-default mb-1">Conteúdo</label>
-                            <textarea id="info-content" name="conteudo" rows="6" value={formData.conteudo} onChange={handleChange} className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition bg-transparent ${errors.conteudo ? 'border-danger' : 'border-border'}`}></textarea>
-                            {errors.conteudo && <p className="text-danger text-xs mt-1">{errors.conteudo}</p>}
-                        </div>
-                    </div>
-                    <div className="flex justify-end p-6 border-t border-border bg-gray-50 dark:bg-surface/50 rounded-b-lg">
-                        <button type="submit" className="px-6 py-2 bg-primary text-white font-semibold rounded-lg shadow-sm hover:bg-primary-dark transition-colors">Publicar</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-};
-
-// --- Componente Principal Informativos ---
 const Informativos = () => {
-    const [informativos, setInformativos] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const { showToast } = useToast();
+    const [informativos, setInformativos] = useState(initialInformativosData);
+    const [isFormModalOpen, setFormModalOpen] = useState(false);
+    const [isDeleteConfirmModalOpen, setDeleteConfirmModalOpen] = useState(false);
+    const [isSendConfirmModalOpen, setSendConfirmModalOpen] = useState(false);
+    const [currentInformativo, setCurrentInformativo] = useState(null);
+    const [formDataToSave, setFormDataToSave] = useState(null);
 
-    const fetchInformativos = useCallback(async () => {
-        setLoading(true);
-        try {
-            const response = await api.get('/api/informativos');
-            // Ordena para que os mais recentes apareçam primeiro
-            const sorted = response.data.sort((a, b) => new Date(b.data_publicacao) - new Date(a.data_publicacao));
-            setInformativos(sorted);
-            setError(null);
-        } catch (err) {
-            setError("Falha ao carregar os informativos. Tente novamente mais tarde.");
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchInformativos();
-    }, [fetchInformativos]);
-
-    const handleSaveInformativo = async (infoData) => {
-        try {
-            await api.post('/api/informativos', infoData);
-            setIsModalOpen(false);
-            fetchInformativos(); // Re-fetch para mostrar o novo informativo
-        } catch (err) {
-            console.error("Falha ao criar informativo:", err);
-            // Idealmente, exibir um toast de erro
-        }
+    const handleOpenFormModal = (info = null) => {
+        setCurrentInformativo(info);
+        setFormModalOpen(true);
     };
 
-    const handleDeleteInformativo = async (id) => {
-        // Encontra o informativo para remover da UI otimisticamente
-        const infoToRemove = informativos.find(info => info.id === id);
-        if (infoToRemove) {
-            // Adiciona uma classe para a animação de fade-out
-            infoToRemove.removing = true;
-            setInformativos([...informativos]);
-
-            // Espera a animação terminar antes de remover do estado e chamar a API
-            setTimeout(async () => {
-                try {
-                    await api.delete(`/api/informativos/${id}`);
-                    setInformativos(prev => prev.filter(info => info.id !== id));
-                } catch (err) {
-                    console.error("Falha ao deletar informativo:", err);
-                    // Reverte a remoção visual se a API falhar
-                    infoToRemove.removing = false;
-                    setInformativos([...informativos]);
-                }
-            }, 500); // Duração da animação
-        }
+    const handleOpenDeleteConfirm = (info) => {
+        setCurrentInformativo(info);
+        setDeleteConfirmModalOpen(true);
     };
 
-    const getCardClassByType = (type) => {
-        switch (type) {
-            case 'Urgente':
-                return 'border-l-4 border-danger';
-            case 'Evento':
-                return 'border-l-4 border-yellow-500';
-            default:
-                return 'border-l-4 border-primary';
-        }
+    const handleSaveAndOpenConfirm = (formData) => {
+        setFormDataToSave(formData);
+        setFormModalOpen(false); // Fecha o form
+        setSendConfirmModalOpen(true); // Abre a confirmação de envio
     };
 
-    if (loading) return <div className="text-center p-10 text-text-muted">Carregando informativos...</div>;
-    if (error) return <div className="text-center p-10 text-red-500">{error}</div>;
+    const handleConfirmSend = () => {
+        const dataFormatada = new Date(formDataToSave.dataAgendamento).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+
+        if (currentInformativo) { // Editando
+            const updatedInfo = { ...currentInformativo, ...formDataToSave, data: dataFormatada, hora: formDataToSave.horaAgendamento };
+            setInformativos(informativos.map(i => i.id === currentInformativo.id ? updatedInfo : i));
+            showToast('success', 'Informativo atualizado com sucesso!');
+        } else { // Criando
+            const newInfo = {
+                id: Date.now(),
+                ...formDataToSave,
+                data: dataFormatada,
+                hora: formDataToSave.horaAgendamento,
+                lido: 0,
+                confirmacoes: 0,
+            };
+            setInformativos([newInfo, ...informativos]);
+            showToast('success', 'Informativo criado e enviado com sucesso!');
+        }
+        setSendConfirmModalOpen(false);
+        setCurrentInformativo(null);
+        setFormDataToSave(null);
+    };
+
+    const handleDelete = () => {
+        setInformativos(informativos.filter(i => i.id !== currentInformativo.id));
+        showToast('success', 'Informativo excluído com sucesso!');
+        setDeleteConfirmModalOpen(false);
+        setCurrentInformativo(null);
+    };
+    
+    const getCategoryClass = (cat) => ({
+        'Geral': 'bg-blue-100 text-blue-800',
+        'Inscrições': 'bg-green-100 text-green-800',
+        'Eventos': 'bg-purple-100 text-purple-800',
+        'Urgente': 'bg-red-100 text-red-800',
+    }[cat] || 'bg-gray-100 text-gray-800');
 
     return (
         <>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center fade-in-up mb-6">
-                <h2 className="text-2xl font-bold text-text-default mb-4 sm:mb-0">Informativos</h2>
-                <div className="flex items-center w-full sm:w-auto">
-                    <button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto flex-shrink-0 px-4 py-2 bg-primary text-white font-semibold rounded-lg shadow-sm hover:bg-primary-dark transition-colors flex items-center justify-center gap-2">
-                        <AddIcon />
-                        <span>Novo Informativo</span>
-                    </button>
-                </div>
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-text-default">Informativos</h2>
+                <button onClick={() => handleOpenFormModal()} className="px-4 py-2 bg-primary text-white font-semibold rounded-lg shadow-sm hover:bg-primary-dark flex items-center">
+                    Criar Novo Informativo
+                </button>
             </div>
 
-            <div className="space-y-6">
-                {informativos.length > 0 ? informativos.map((info, index) => (
-                    <div
-                        key={info.id}
-                        className={`info-card bg-surface rounded-lg shadow-sm border border-border p-6 relative transition-all duration-500 ease-out ${getCardClassByType(info.tipo)} ${info.removing ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}
-                        style={{ animation: info.removing ? '' : 'fadeInUp 0.5s ease-out forwards', animationDelay: `${index * 100}ms`, opacity: 0 }}
-                    >
-                        <button onClick={() => handleDeleteInformativo(info.id)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-text-default transition-colors" title="Marcar como lido">
-                            <CloseIcon />
-                        </button>
-                        <div className="flex items-center mb-2">
-                            <span className="text-sm font-semibold text-primary uppercase">{info.tipo}</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {informativos.map(info => (
+                    <div key={info.id} className="bg-surface rounded-lg shadow-sm border border-border flex flex-col">
+                        <div className="p-4 flex-grow">
+                            <div className="flex justify-between items-start mb-2">
+                                <span className={`text-xs font-bold uppercase px-2 py-1 rounded ${getCategoryClass(info.categoria)}`}>{info.categoria}</span>
+                                {info.fixado && <span title="Fixado no topo">📌</span>}
+                            </div>
+                            <h3 className="font-bold text-lg text-text-default">{info.titulo}</h3>
+                            <p className="text-sm text-text-muted mt-1">{info.data} às {info.hora}</p>
+                            <p className="text-sm text-text-default mt-4">{info.conteudo}</p>
                         </div>
-                        <h3 className="text-xl font-bold text-text-default mb-2">{info.titulo}</h3>
-                        <p className="text-text-default mb-4 whitespace-pre-wrap">{info.conteudo}</p>
-                        <p className="text-xs text-text-muted">
-                            Publicado em {new Date(info.data_publicacao).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
-                        </p>
+                        <div className="p-4 border-t border-border flex justify-between items-center text-xs text-text-muted">
+                            <div>
+                                <span>👁️ {info.lido} Leituras</span>
+                                {info.confirmacao && <span className="ml-4">✔️ {info.confirmacoes} Confirmações</span>}
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <button onClick={() => handleOpenFormModal(info)} className="text-blue-600 hover:underline">Editar</button>
+                                <button onClick={() => handleOpenDeleteConfirm(info)} className="text-danger hover:underline">Excluir</button>
+                            </div>
+                        </div>
                     </div>
-                )) : (
-                     <div className="text-center py-16 text-text-muted fade-in-up">
-                        <svg className="mx-auto w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                        <h3 className="mt-2 text-sm font-medium text-text-default">Nenhum informativo por aqui</h3>
-                        <p className="mt-1 text-sm">Quando um novo informativo for publicado, ele aparecerá aqui.</p>
-                    </div>
-                )}
+                ))}
             </div>
-            
-            <InfoModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveInformativo} />
+
+            <InformativoModal
+                isOpen={isFormModalOpen}
+                onClose={() => setFormModalOpen(false)}
+                onSave={handleSaveAndOpenConfirm}
+                informativo={currentInformativo}
+            />
+
+            <ConfirmationModal
+                isOpen={isSendConfirmModalOpen}
+                onClose={() => setSendConfirmModalOpen(false)}
+                onConfirm={handleConfirmSend}
+                title="Confirmar Envio?"
+                message="O informativo será enviado para todos os destinatários selecionados. Deseja continuar?"
+            />
+
+            <ConfirmationModal
+                isOpen={isDeleteConfirmModalOpen}
+                onClose={() => setDeleteConfirmModalOpen(false)}
+                onConfirm={handleDelete}
+                title="Confirmar Exclusão?"
+                message="Este informativo será permanentemente removido. Esta ação não pode ser desfeita."
+            />
         </>
     );
 };

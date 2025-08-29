@@ -28,16 +28,16 @@ app.get('/', (req, res) => {
 });
 
 // --- USO DAS ROTAS ---
-// Usando prefixos específicos para cada conjunto de rotas para evitar conflitos
-app.use('/api', authRoutes); // Rota -> /api/login
-app.use('/api/inscricoes', inscricoesRoutes); // Rota -> /api/inscricoes
+// CORREÇÃO: O prefixo para as rotas de autenticação foi corrigido para '/api/auth'.
+app.use('/api/auth', authRoutes); // Rota -> /api/auth/login
+app.use('/api/inscricoes', inscricoesRoutes);
 app.use('/api/alunos', alunosRoutes);
 app.use('/api/cursos', cursosRoutes);
 app.use('/api/professores', professoresRoutes);
 app.use('/api/informativos', informativosRoutes);
 app.use('/api/frequencia', frequenciaRoutes);
 app.use('/api/relatorios', relatoriosRoutes);
-app.use('/api/suporte', suporteRoutes); // Rota -> /api/suporte/tickets, etc.
+app.use('/api/suporte', suporteRoutes);
 
 // Define a porta do servidor, buscando do ambiente ou usando 3000 como padrão
 const PORT = process.env.PORT || 3000;

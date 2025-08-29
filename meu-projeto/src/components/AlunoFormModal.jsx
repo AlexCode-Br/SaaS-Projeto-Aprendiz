@@ -1,101 +1,170 @@
 import React, { useState, useEffect } from 'react';
-import Modal from './Modal';
-import api from '../services/api';
+
+// Dados mockados para os selects
+const cursosPorLocal = {
+    'Violão I': ['Pituba', 'Lauro de Freitas', 'Guarani'],
+    'Teclado': ['Brotas', 'Guarani'],
+    'Bateria': ['Lauro de Freitas', 'Vista Alegre (Remoto)'],
+    'Canto Coral': ['Pituba'],
+    'Violino': ['Brotas', 'Boca do Rio'],
+    'Flauta Transversal': ['Boca do Rio'],
+    'Contrabaixo': ['Alto de Coutos'],
+    'Violão II': ['Pituba'],
+    'Teoria Musical': ['Remoto'],
+    'Saxofone': ['Brotas'],
+};
+const allCourses = Object.keys(cursosPorLocal);
 
 const AlunoFormModal = ({ isOpen, onClose, onSave, aluno }) => {
-    const [formData, setFormData] = useState({
+    const initialFormState = {
         nome: '',
-        email: '',
+        contato: '',
         telefone: '',
-        endereco: '',
-        data_nascimento: '',
-    });
-    const [foto, setFoto] = useState(null);
-    const [preview, setPreview] = useState(null);
-    
+        igreja: '',
+        classe: '',
+        curso: '',
+        local: '',
+        instrumento: 'Não',
+    };
+
+    const [formData, setFormData] = useState(initialFormState);
+    const [errors, setErrors] = useState({});
+    const [availableLocais, setAvailableLocais] = useState([]);
+
     useEffect(() => {
         if (aluno) {
             setFormData({
                 nome: aluno.nome || '',
-                email: aluno.email || '',
+                contato: aluno.contato || '',
                 telefone: aluno.telefone || '',
-                endereco: aluno.endereco || '',
-                data_nascimento: aluno.data_nascimento ? new Date(aluno.data_nascimento).toISOString().split('T')[0] : '',
+                igreja: aluno.igreja || '',
+                classe: aluno.classe || '',
+                curso: Array.isArray(aluno.curso) ? aluno.curso[0] : (aluno.curso || ''), // Assume o primeiro curso para edição
+                local: aluno.local || '',
+                instrumento: aluno.instrumento || 'Não',
             });
-            setPreview(aluno.foto_url || null);
+            // Popula locais ao editar
+            const cursoSelecionado = Array.isArray(aluno.curso) ? aluno.curso[0] : aluno.curso;
+            if (cursoSelecionado && cursosPorLocal[cursoSelecionado]) {
+                setAvailableLocais(cursosPorLocal[cursoSelecionado]);
+            }
         } else {
-            // Reset form when opening for a new student
-            setFormData({ nome: '', email: '', telefone: '', endereco: '', data_nascimento: '' });
-            setFoto(null);
-            setPreview(null);
+            setFormData(initialFormState);
+            setAvailableLocais([]);
         }
+        setErrors({});
     }, [aluno, isOpen]);
 
     const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
 
-    const handleFileChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setFoto(file);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setPreview(reader.result);
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-    
-    // ** PONTO CRÍTICO DA CORREÇÃO **
-    // A função foi reescrita para usar FormData, permitindo o envio de arquivos.
-    const handleSave = async () => {
-        const data = new FormData();
-        Object.keys(formData).forEach(key => {
-            data.append(key, formData[key]);
-        });
-        if (foto) {
-            data.append('foto', foto);
+        if (name === 'curso') {
+            setAvailableLocais(cursosPorLocal[value] || []);
+            setFormData(prev => ({ ...prev, local: '' })); // Reseta o local ao mudar o curso
         }
 
-        onSave(data, aluno?.id);
+        if (errors[name]) {
+            setErrors(prev => ({ ...prev, [name]: null }));
+        }
     };
+
+    const validate = () => {
+        const newErrors = {};
+        if (!formData.nome.trim()) newErrors.nome = 'O nome é obrigatório.';
+        if (!formData.contato.trim()) newErrors.contato = 'O e-mail é obrigatório.';
+        else if (!/\S+@\S+\.\S+/.test(formData.contato)) newErrors.contato = 'E-mail inválido.';
+        if (!formData.telefone.trim()) newErrors.telefone = 'O telefone é obrigatório.';
+        if (!formData.igreja.trim()) newErrors.igreja = 'A igreja é obrigatória.';
+        if (!formData.classe) newErrors.classe = 'A classe é obrigatória.';
+        if (!formData.curso) newErrors.curso = 'O curso é obrigatório.';
+        if (!formData.local) newErrors.local = 'O local é obrigatório.';
+        return newErrors;
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        const validationErrors = validate();
+        if (Object.keys(validationErrors).length > 0) {
+            setErrors(validationErrors);
+            return;
+        }
+        // No protótipo, o curso é um array, então ajustamos aqui
+        onSave({ ...formData, curso: [formData.curso] });
+    };
+
+    if (!isOpen) return null;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={aluno ? 'Editar Aluno' : 'Adicionar Aluno'}>
-            <div className="space-y-4">
-                <div className="flex items-center space-x-4">
-                    <div className="w-24 h-24 rounded-full bg-border flex-shrink-0">
-                        {preview ? (
-                            <img src={preview} alt="Preview" className="w-full h-full rounded-full object-cover" />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center text-text-muted">
-                                <svg className="w-10 h-10" fill="currentColor" viewBox="0 0 20 20"><path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/></svg>
+        <div className="modal fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-4 opacity-100">
+            <div className="modal-content bg-white dark:bg-surface rounded-lg shadow-xl w-full max-w-2xl transform scale-100">
+                <div className="flex justify-between items-center p-4 md:p-6 border-b border-border">
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-text-default">{aluno ? 'Editar Aluno' : 'Adicionar Novo Aluno'}</h3>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-text-default">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <form onSubmit={handleSubmit} noValidate>
+                    <div className="p-4 md:p-6 max-h-[70vh] overflow-y-auto space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {Object.entries({ nome: 'Nome Completo', contato: 'E-mail', telefone: 'Telefone (WhatsApp)', igreja: 'Igreja-Bairro' }).map(([key, label]) => (
+                                <div key={key}>
+                                    <label htmlFor={key} className="block text-sm font-medium text-text-default mb-1">{label}</label>
+                                    <input
+                                        type={key === 'contato' ? 'email' : 'text'}
+                                        name={key}
+                                        id={key}
+                                        value={formData[key]}
+                                        onChange={handleChange}
+                                        className={`w-full px-3 py-2 border rounded-lg bg-surface ${errors[key] ? 'border-danger' : 'border-border'}`}
+                                    />
+                                    {errors[key] && <p className="text-danger text-xs mt-1">{errors[key]}</p>}
+                                </div>
+                            ))}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                             <div>
+                                <label htmlFor="classe" className="block text-sm font-medium text-text-default mb-1">Classe</label>
+                                <select name="classe" id="classe" value={formData.classe} onChange={handleChange} className={`w-full px-3 py-2 border rounded-lg bg-surface ${errors.classe ? 'border-danger' : 'border-border'}`}>
+                                    <option value="">Selecione...</option>
+                                    <option>Adolescente</option>
+                                    <option>Jovem</option>
+                                    <option>Senhora</option>
+                                    <option>Varão</option>
+                                </select>
+                                 {errors.classe && <p className="text-danger text-xs mt-1">{errors.classe}</p>}
                             </div>
-                        )}
+                            <div>
+                                <label htmlFor="curso" className="block text-sm font-medium text-text-default mb-1">Curso de Interesse</label>
+                                <select name="curso" id="curso" value={formData.curso} onChange={handleChange} className={`w-full px-3 py-2 border rounded-lg bg-surface ${errors.curso ? 'border-danger' : 'border-border'}`}>
+                                    <option value="">Selecione...</option>
+                                    {allCourses.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                                {errors.curso && <p className="text-danger text-xs mt-1">{errors.curso}</p>}
+                            </div>
+                            <div>
+                                <label htmlFor="local" className="block text-sm font-medium text-text-default mb-1">Local</label>
+                                <select name="local" id="local" value={formData.local} onChange={handleChange} disabled={!formData.curso} className={`w-full px-3 py-2 border rounded-lg bg-surface disabled:bg-gray-100 dark:disabled:bg-gray-600 ${errors.local ? 'border-danger' : 'border-border'}`}>
+                                    <option value="">Selecione...</option>
+                                    {availableLocais.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+                                </select>
+                                {errors.local && <p className="text-danger text-xs mt-1">{errors.local}</p>}
+                            </div>
+                        </div>
+                         <div>
+                            <label className="block text-sm font-medium text-text-default mb-1">Possui instrumento?</label>
+                            <div className="flex items-center space-x-4 mt-2">
+                                <label className="flex items-center"><input type="radio" name="instrumento" value="Sim" checked={formData.instrumento === 'Sim'} onChange={handleChange} className="mr-2" /> Sim</label>
+                                <label className="flex items-center"><input type="radio" name="instrumento" value="Não" checked={formData.instrumento === 'Não'} onChange={handleChange} className="mr-2" /> Não</label>
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <label htmlFor="foto-upload" className="cursor-pointer px-4 py-2 text-sm rounded-md text-primary bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors">
-                            Carregar Foto
-                        </label>
-                        <input id="foto-upload" type="file" className="hidden" onChange={handleFileChange} accept="image/*" />
+                    <div className="flex justify-end p-4 md:p-6 border-t border-border bg-gray-50 dark:bg-surface/30">
+                        <button type="submit" className="px-6 py-2 bg-primary text-white font-semibold rounded-lg shadow-sm hover:bg-primary-dark">Salvar Alterações</button>
                     </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" name="nome" value={formData.nome} onChange={handleChange} placeholder="Nome Completo" className="w-full px-3 py-2 border rounded-md bg-surface border-border focus:outline-none focus:ring-2 focus:ring-primary" />
-                    <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="Email" className="w-full px-3 py-2 border rounded-md bg-surface border-border focus:outline-none focus:ring-2 focus:ring-primary" />
-                    <input type="tel" name="telefone" value={formData.telefone} onChange={handleChange} placeholder="Telefone" className="w-full px-3 py-2 border rounded-md bg-surface border-border focus:outline-none focus:ring-2 focus:ring-primary" />
-                    <input type="date" name="data_nascimento" value={formData.data_nascimento} onChange={handleChange} className="w-full px-3 py-2 border rounded-md bg-surface border-border focus:outline-none focus:ring-2 focus:ring-primary" />
-                </div>
-                <input type="text" name="endereco" value={formData.endereco} onChange={handleChange} placeholder="Endereço" className="w-full px-3 py-2 border rounded-md bg-surface border-border focus:outline-none focus:ring-2 focus:ring-primary" />
-                
-                <div className="flex justify-end space-x-4 pt-4">
-                    <button onClick={onClose} className="px-4 py-2 rounded-md text-text-default bg-surface border border-border hover:bg-border">Cancelar</button>
-                    <button onClick={handleSave} className="px-4 py-2 rounded-md text-white bg-primary hover:bg-primary-dark">Salvar</button>
-                </div>
+                </form>
             </div>
-        </Modal>
+        </div>
     );
 };
 

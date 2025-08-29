@@ -1,82 +1,82 @@
 import React from 'react';
 
-// Componente para renderizar um campo de detalhe
-const DetailField = ({ label, value }) => (
-  <div>
-    <p className="text-sm font-medium text-gray-500">{label}</p>
-    <p className="mt-1 text-md text-gray-800">{value || 'Não informado'}</p>
-  </div>
-);
+const StudentDetailsModal = ({ student, isOpen, onClose }) => {
+    if (!isOpen || !student) {
+        return null;
+    }
 
-const StudentDetailsModal = ({ isOpen, onClose, student }) => {
-  if (!isOpen || !student) return null;
+    const renderCourseTags = (courses) => {
+        if (!courses || courses.length === 0) {
+            return <span className="text-text-muted italic">Nenhum curso selecionado</span>;
+        }
+        return courses.map(course => (
+            <span key={course} className="course-tag flex items-center bg-primary text-white text-xs font-semibold px-2 py-1 rounded-full cursor-default">
+                {course}
+            </span>
+        ));
+    };
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto animate-fadeInUp">
-        <div className="p-8">
-          {/* Cabeçalho do Modal */}
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Detalhes do Aluno</h2>
-              <p className="text-gray-500 mt-1">Informações completas de {student.nome}.</p>
-            </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
-          </div>
-
-          <div className="border-t border-gray-200 pt-6">
-            {/* Seção Dados Pessoais */}
-            <div className="mb-8">
-              <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-4">Dados Pessoais</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                <DetailField label="Nome Completo" value={student.nome} />
-                <DetailField label="CPF" value={student.cpf} />
-                <DetailField label="Data de Nascimento" value={new Date(student.data_nascimento).toLocaleDateString()} />
-                <DetailField label="E-mail" value={student.email} />
-                <DetailField label="Telefone" value={student.telefone} />
-                <DetailField label="Status" value={student.status} />
-              </div>
-            </div>
-
-            {/* Seção Endereço */}
-            <div className="mb-8">
-              <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-4">Endereço</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                <DetailField label="CEP" value={student.cep} />
-                <DetailField label="Logradouro" value={`${student.logradouro}, ${student.numero}`} />
-                <DetailField label="Bairro" value={student.bairro} />
-                <DetailField label="Cidade / UF" value={`${student.cidade} / ${student.estado}`} />
-              </div>
-            </div>
-
-            {/* Seção Histórico de Cursos */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-4">Histórico de Cursos</h3>
-              <ul className="space-y-3">
-                {/* Mock: idealmente viria da API */}
-                <li className="p-3 bg-gray-50 rounded-md">
-                  <p className="font-semibold text-gray-800">{student.curso_nome}</p>
-                  <p className="text-sm text-gray-500">Status: <span className="font-medium text-green-600">Cursando</span></p>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-        
-        {/* Rodapé do Modal */}
-        <div className="bg-gray-50 px-8 py-4 text-right rounded-b-lg">
-          <button
+    return (
+        <div 
+            className="modal fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 px-4 opacity-100"
             onClick={onClose}
-            className="bg-gray-200 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-300 transition-colors"
-          >
-            Fechar
-          </button>
+        >
+            <div 
+                className="modal-content bg-white dark:bg-surface rounded-lg shadow-xl w-full max-w-lg transform scale-100"
+                onClick={e => e.stopPropagation()} // Impede que o clique dentro do modal o feche
+            >
+                <div className="flex justify-between items-center p-4 md:p-6 border-b border-border">
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-text-default">Dados do Aluno</h3>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-text-default">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <div className="p-4 md:p-6 max-h-[70vh] overflow-y-auto">
+                    <form className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-text-default mb-1">Nome Completo</label>
+                                <input type="text" value={student.nome || ''} className="w-full px-3 py-2 border border-border rounded-lg bg-gray-100 dark:bg-gray-700" readOnly />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-text-default mb-1">E-mail</label>
+                                <input type="email" value={student.contato || ''} className="w-full px-3 py-2 border border-border rounded-lg bg-gray-100 dark:bg-gray-700" readOnly />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-text-default mb-1">Telefone (WhatsApp)</label>
+                                <input type="tel" value={student.telefone || ''} className="w-full px-3 py-2 border border-border rounded-lg bg-gray-100 dark:bg-gray-700" readOnly />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-text-default mb-1">Igreja-Bairro</label>
+                                <input type="text" value={student.igreja || ''} className="w-full px-3 py-2 border border-border rounded-lg bg-gray-100 dark:bg-gray-700" readOnly />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-text-default mb-1">Classe</label>
+                                <input type="text" value={student.classe || ''} className="w-full px-3 py-2 border border-border rounded-lg bg-gray-100 dark:bg-gray-700" readOnly />
+                            </div>
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-text-default mb-1">Cursos</label>
+                                <div className="course-input-container w-full border border-border rounded-lg p-2 bg-gray-100 dark:bg-gray-700 min-h-[42px]">
+                                    {renderCourseTags(student.curso)}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-text-default mb-1">Local</label>
+                                <input type="text" value={student.local || ''} className="w-full px-3 py-2 border border-border rounded-lg bg-gray-100 dark:bg-gray-700" readOnly />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-text-default mb-1">Ele possui instrumento?</label>
+                                <input type="text" value={student.instrumento || ''} className="w-full px-3 py-2 border border-border rounded-lg bg-gray-100 dark:bg-gray-700" readOnly />
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                 <div className="flex justify-end p-4 md:p-6 border-t border-border bg-gray-50 dark:bg-surface/30">
+                    <button onClick={onClose} className="px-6 py-2 bg-gray-200 dark:bg-gray-600 text-text-default font-semibold rounded-lg shadow-sm hover:bg-gray-300 dark:hover:bg-gray-500">Fechar</button>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 };
 
 export default StudentDetailsModal;

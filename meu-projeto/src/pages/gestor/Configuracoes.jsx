@@ -1,178 +1,146 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { AuthContext } from '../../contexts/AuthContext';
+import React, { useState } from 'react';
 import { useToast } from '../../contexts/ToastContext';
-import api from '../../services/api';
 
-// --- Ícone de Senha ---
-const LockIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>;
+// Ícones como componentes para facilitar o uso
+const ChevronDownIcon = ({ className }) => (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+);
 
-// --- Componente de Toggle Switch ---
-const ToggleSwitch = ({ id, label, description, checked, onChange }) => (
-    <li className="p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex-1">
-            <p className="font-medium text-text-default">{label}</p>
-            <p className="text-sm text-text-muted">{description}</p>
+const BellIcon = () => <svg className="w-6 h-6 mr-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>;
+
+const InfoIcon = () => <svg className="w-6 h-6 mr-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>;
+
+const UserCircleIcon = () => <svg className="w-6 h-6 mr-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>;
+
+
+// Componente de Toggle Switch customizado
+const ToggleSwitch = ({ id, label, enabled, setEnabled }) => (
+    <label htmlFor={id} className="flex items-center justify-between cursor-pointer">
+        <span className="text-text-default">{label}</span>
+        <div className="relative">
+            <input id={id} type="checkbox" className="sr-only" checked={enabled} onChange={() => setEnabled(!enabled)} />
+            <div className={`block w-14 h-8 rounded-full transition ${enabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'}`}></div>
+            <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${enabled ? 'translate-x-6' : ''}`}></div>
         </div>
-        <div className="relative inline-block w-10 align-middle select-none transition duration-200 ease-in flex-shrink-0">
-            <input 
-                type="checkbox" 
-                name={id} 
-                id={id} 
-                checked={checked} 
-                onChange={onChange} 
-                className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
-            />
-            <label 
-                htmlFor={id} 
-                className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 dark:bg-gray-600 cursor-pointer"
-            ></label>
-        </div>
-    </li>
+    </label>
 );
 
 
 const Configuracoes = () => {
-    const { user, setUser } = useContext(AuthContext);
-    const showToast = useToast();
-
-    const [formData, setFormData] = useState({ nome: '', email: '' });
-    const [profilePicturePreview, setProfilePicturePreview] = useState("https://placehold.co/100x100/b71c1c/FFFFFF?text=A");
-    const [showPasswordFields, setShowPasswordFields] = useState(false);
-    const [notificationSettings, setNotificationSettings] = useState({
+    const { showToast } = useToast();
+    const [profileImage, setProfileImage] = useState('https://placehold.co/100x100/b71c1c/FFFFFF?text=A');
+    const [isPasswordOpen, setIsPasswordOpen] = useState(false);
+    const [notifications, setNotifications] = useState({
         newStudent: true,
-        supportTicket: false,
+        newTicket: true,
+        courseUpdates: false,
+        systemAlerts: true,
     });
-    
-    useEffect(() => {
-        if (user) {
-            setFormData({ nome: user.nome, email: user.email });
-            // Lógica para carregar a foto do perfil, se houver
-        }
-    }, [user]);
 
-    const handleInputChange = (e) => {
-        const { id, value } = e.target;
-        setFormData(prev => ({ ...prev, [id]: value }));
-    };
-
-    const handleNotificationChange = (e) => {
-        const { id, checked } = e.target;
-        setNotificationSettings(prev => ({ ...prev, [id]: checked }));
-    };
-
-    const handleProfilePictureChange = (event) => {
-        const file = event.target.files[0];
-        if (file && file.type.startsWith('image/')) {
+    const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
             const reader = new FileReader();
-            reader.onloadend = () => {
-                setProfilePicturePreview(reader.result);
+            reader.onload = (event) => {
+                setProfileImage(event.target.result);
             };
             reader.readAsDataURL(file);
-            // Lógica de upload para API iria aqui
-        }
-    };
-
-    const handleProfileSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            // Supondo uma rota para atualizar o perfil do usuário
-            // A API deve retornar o usuário atualizado
-            const response = await api.put(`/api/usuarios/${user.id}`, formData);
-            setUser(response.data); // Atualiza o usuário no AuthContext
-            showToast('Perfil atualizado com sucesso!', 'success');
-        } catch (error) {
-            showToast('Erro ao atualizar perfil.', 'error');
-            console.error(error);
         }
     };
     
+    const handleProfileSubmit = (e) => {
+        e.preventDefault();
+        // Lógica de validação e salvamento aqui
+        showToast('success', 'Perfil atualizado com sucesso!');
+    };
+
     return (
         <>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 fade-in-up delay-100">
-                <h2 className="text-2xl font-bold text-text-default mb-4 sm:mb-0">Configurações</h2>
-            </div>
+            <h2 className="text-2xl font-bold text-text-default mb-6">Configurações da Conta</h2>
 
-            <div className="space-y-8 max-w-4xl">
+            <div className="space-y-8">
                 {/* Card de Perfil */}
-                <div className="bg-surface rounded-lg shadow-sm border border-border fade-in-up delay-200">
-                    <div className="p-6">
+                <div className="bg-surface rounded-lg shadow-sm border border-border">
+                    <div className="p-4 md:p-6 border-b border-border flex items-center">
+                        <UserCircleIcon/>
                         <h3 className="text-lg font-semibold text-text-default">Perfil</h3>
-                        <p className="text-sm text-text-muted mt-1">Gerencie as informações da sua conta.</p>
                     </div>
-                    <div className="p-6 border-t border-border">
-                        <form onSubmit={handleProfileSubmit} className="space-y-6" noValidate>
-                            <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
-                                <img id="profile-picture-preview-form" className="w-20 h-20 rounded-full object-cover" src={profilePicturePreview} alt="Imagem de Perfil" />
+                    <form onSubmit={handleProfileSubmit}>
+                        <div className="p-4 md:p-6 space-y-6">
+                            <div className="flex items-center space-x-4">
+                                <img src={profileImage} alt="Imagem de Perfil" className="w-20 h-20 rounded-full" />
                                 <div>
-                                    <label htmlFor="profile-picture-upload-form" className="cursor-pointer px-4 py-2 bg-gray-200 dark:bg-gray-600 text-text-default font-semibold rounded-lg shadow-sm hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors">
+                                    <label htmlFor="profile-picture-upload" className="cursor-pointer px-4 py-2 bg-gray-200 dark:bg-gray-700 text-text-default font-semibold rounded-lg shadow-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
                                         Alterar Imagem
                                     </label>
-                                    <input type="file" id="profile-picture-upload-form" className="hidden" accept="image/*" onChange={handleProfilePictureChange}/>
-                                    <p className="text-xs text-text-muted mt-2">JPG, PNG ou GIF. Máx 2MB.</p>
+                                    <input type="file" id="profile-picture-upload" className="hidden" accept="image/*" onChange={handleImageUpload} />
                                 </div>
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label htmlFor="nome" className="block text-sm font-medium text-text-muted">Nome</label>
-                                    <input type="text" id="nome" value={formData.nome} onChange={handleInputChange} className="mt-1 w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition bg-transparent" />
+                                    <label htmlFor="profile-name" className="block text-sm font-medium text-text-default mb-1">Nome</label>
+                                    <input type="text" id="profile-name" defaultValue="Admin Regional" className="w-full px-3 py-2 border border-border rounded-lg" />
                                 </div>
                                 <div>
-                                    <label htmlFor="email" className="block text-sm font-medium text-text-muted">Email</label>
-                                    <input type="email" id="email" value={formData.email} onChange={handleInputChange} className="mt-1 w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition bg-transparent" />
+                                    <label htmlFor="profile-email" className="block text-sm font-medium text-text-default mb-1">E-mail</label>
+                                    <input type="email" id="profile-email" defaultValue="admin@icm.org.br" className="w-full px-3 py-2 border border-border rounded-lg" />
                                 </div>
                             </div>
                             <div>
-                                <button type="button" onClick={() => setShowPasswordFields(!showPasswordFields)} className="px-4 py-2 text-sm bg-gray-200 dark:bg-gray-600 text-text-default font-semibold rounded-lg shadow-sm hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors flex items-center space-x-2">
-                                    <LockIcon />
-                                    <span>Alterar Senha</span>
+                                <button type="button" onClick={() => setIsPasswordOpen(!isPasswordOpen)} className="w-full flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                                    <span className="font-semibold text-text-default">Alterar Senha</span>
+                                    <ChevronDownIcon className={`w-5 h-5 text-text-muted transition-transform ${isPasswordOpen ? 'rotate-180' : ''}`} />
                                 </button>
+                                {isPasswordOpen && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 p-4 border border-border rounded-lg">
+                                        <div>
+                                            <label className="block text-sm font-medium text-text-default mb-1">Nova Senha</label>
+                                            <input type="password" className="w-full px-3 py-2 border border-border rounded-lg" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-text-default mb-1">Confirmar Nova Senha</label>
+                                            <input type="password" className="w-full px-3 py-2 border border-border rounded-lg" />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                            {showPasswordFields && (
-                                <div id="password-fields-page" className="space-y-4 pt-2">
-                                    {/* Campos de Senha (componente separado seria ideal) */}
-                                </div>
-                            )}
-                            <div className="pt-4 text-left">
-                                <button type="submit" className="px-6 py-2 text-sm bg-primary text-white font-semibold rounded-lg shadow-sm hover:bg-primary-dark transition-colors">Salvar Alterações</button>
-                            </div>
-                        </form>
-                    </div>
+                        </div>
+                        <div className="flex justify-end p-4 bg-gray-50 dark:bg-surface/30 border-t border-border rounded-b-lg">
+                            <button type="submit" className="px-6 py-2 bg-primary text-white font-semibold rounded-lg shadow-sm hover:bg-primary-dark">Salvar Alterações</button>
+                        </div>
+                    </form>
                 </div>
 
                 {/* Card de Notificações */}
-                <div className="bg-surface rounded-lg shadow-sm border border-border fade-in-up delay-300">
-                    <div className="p-6">
+                <div className="bg-surface rounded-lg shadow-sm border border-border">
+                     <div className="p-4 md:p-6 border-b border-border flex items-center">
+                        <BellIcon/>
                         <h3 className="text-lg font-semibold text-text-default">Notificações</h3>
-                        <p className="text-sm text-text-muted mt-1">Escolha como você quer ser notificado.</p>
                     </div>
-                    <ul className="divide-y divide-border">
-                       <ToggleSwitch 
-                            id="newStudent" 
-                            label="Novas inscrições de alunos" 
-                            description="Receber um e-mail quando um novo aluno se inscrever."
-                            checked={notificationSettings.newStudent}
-                            onChange={handleNotificationChange}
-                        />
-                         <ToggleSwitch 
-                            id="supportTicket" 
-                            label="Tickets de suporte" 
-                            description="Receber um e-mail quando um novo ticket for aberto."
-                            checked={notificationSettings.supportTicket}
-                            onChange={handleNotificationChange}
-                        />
-                    </ul>
+                    <div className="p-4 md:p-6 space-y-4">
+                        <ToggleSwitch id="notif-aluno" label="Receber e-mail para cada novo aluno inscrito" enabled={notifications.newStudent} setEnabled={(val) => setNotifications(p => ({...p, newStudent: val}))} />
+                        <ToggleSwitch id="notif-ticket" label="Receber e-mail para cada novo ticket de suporte" enabled={notifications.newTicket} setEnabled={(val) => setNotifications(p => ({...p, newTicket: val}))}/>
+                        <ToggleSwitch id="notif-curso" label="Receber e-mail sobre atualizações dos cursos" enabled={notifications.courseUpdates} setEnabled={(val) => setNotifications(p => ({...p, courseUpdates: val}))}/>
+                        <ToggleSwitch id="notif-sistema" label="Receber e-mail sobre alertas e manutenções do sistema" enabled={notifications.systemAlerts} setEnabled={(val) => setNotifications(p => ({...p, systemAlerts: val}))}/>
+                    </div>
                 </div>
-                
+
                 {/* Card Sobre o Sistema */}
-                <div className="bg-surface rounded-lg shadow-sm border border-border fade-in-up delay-400">
-                    <div className="p-6">
+                 <div className="bg-surface rounded-lg shadow-sm border border-border">
+                    <div className="p-4 md:p-6 border-b border-border flex items-center">
+                        <InfoIcon/>
                         <h3 className="text-lg font-semibold text-text-default">Sobre o Sistema</h3>
                     </div>
-                    <ul className="divide-y divide-border text-sm">
-                        <li className="p-4 flex justify-between items-center"><span className="text-text-muted">Nome do SaaS:</span><span className="font-medium">Projeto Aprendiz - Gestor</span></li>
-                        <li className="p-4 flex justify-between items-center"><span className="text-text-muted">Versão:</span><span className="font-medium">1.0.0</span></li>
-                        <li className="p-4 flex justify-between items-center"><span className="text-text-muted">Última Atualização:</span><span className="font-medium">28 de Agosto de 2025</span></li>
-                    </ul>
+                    <div className="p-4 md:p-6 text-sm text-text-default space-y-2">
+                        <p><strong>Versão do Sistema:</strong> 2.0.1 (Gestor)</p>
+                        <p><strong>Última Atualização:</strong> 15 de Agosto de 2025</p>
+                        <p>&copy; 2025 Projeto Aprendiz. Todos os direitos reservados.</p>
+                        <div className="pt-2">
+                            <a href="#" className="text-primary hover:underline">Termos de Serviço</a>
+                            <span className="mx-2 text-text-muted">|</span>
+                            <a href="#" className="text-primary hover:underline">Política de Privacidade</a>
+                        </div>
+                    </div>
                 </div>
             </div>
         </>

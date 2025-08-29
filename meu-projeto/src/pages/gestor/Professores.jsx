@@ -1,212 +1,149 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import api from '../../services/api';
+import React, { useState, useMemo } from 'react';
+import ProfessorFormModal from '../../components/ProfessorFormModal';
+import ProfessorDetailsModal from '../../components/ProfessorDetailsModal';
+import ConfirmationModal from '../../components/ConfirmationModal';
+import KebabMenu from '../../components/KebabMenu'; // Importando o novo componente
 import { useToast } from '../../contexts/ToastContext';
 
-// --- Componentes ---
-import Pagination from '../../components/Pagination';
-import ProfessorFormModal from '../../components/ProfessorFormModal';
-import ConfirmationModal from '../../components/ConfirmationModal';
-import { PencilIcon, TrashIcon } from '../../components/icons';
+// Mock Data
+const initialProfessoresData = [
+    { id: 1, nome: 'João Silva', contato: 'joao.silva@email.com', telefone: '(71) 98888-1111', local: 'Pituba', cursos: ['Violão I', 'Violão II'], status: 'Ativo' },
+    { id: 2, nome: 'Maria Oliveira', contato: 'maria.oliveira@email.com', telefone: '(71) 98888-2222', local: 'Brotas', cursos: ['Teclado'], status: 'Ativo' },
+    { id: 3, nome: 'Carlos Souza', contato: 'carlos.souza@email.com', telefone: '(71) 98888-3333', local: 'Lauro de Freitas', cursos: ['Bateria'], status: 'Ativo' },
+    { id: 4, nome: 'Ana Costa', contato: 'ana.costa@email.com', telefone: '(71) 98888-4444', local: 'Pituba', cursos: ['Canto Coral'], status: 'Inativo' },
+    { id: 5, nome: 'Pedro Santos', contato: 'pedro.santos@email.com', telefone: '(71) 98888-5555', local: 'Brotas', cursos: ['Violino'], status: 'Ativo' },
+];
+const allCoursesList = ["Violão I", "Teclado", "Bateria", "Canto Coral", "Violino", "Flauta Transversal", "Saxofone", "Contrabaixo", "Violão II", "Teoria Musical"];
+const allLocaisList = ['Pituba', 'Brotas', 'Lauro de Freitas', 'Boca do Rio', 'Alto de Coutos', 'Remoto'];
+
+// Ícones de Ação
+const DetailsIcon = () => <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>;
+const EditIcon = () => <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>;
+const DeleteIcon = () => <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>;
 
 const Professores = () => {
-    // --- Estados ---
-    const [professores, setProfessores] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    
-    // Paginação
-    const [currentPage, setCurrentPage] = useState(1);
-    const [totalProfessores, setTotalProfessores] = useState(0);
-    const [itemsPerPage] = useState(10);
-
-    // Modais
-    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-    const [selectedProfessor, setSelectedProfessor] = useState(null);
-
-    // Busca
-    const [searchTerm, setSearchTerm] = useState('');
-
     const { showToast } = useToast();
+    const [professores, setProfessores] = useState(initialProfessoresData);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedCourse, setSelectedCourse] = useState('');
+    const [selectedLocal, setSelectedLocal] = useState('');
+    const [isFormModalOpen, setFormModalOpen] = useState(false);
+    const [isDetailsModalOpen, setDetailsModalOpen] = useState(false);
+    const [isConfirmModalOpen, setConfirmModalOpen] = useState(false);
+    const [currentProfessor, setCurrentProfessor] = useState(null);
 
-    // --- Carregamento de Dados ---
-    const fetchProfessores = useCallback(async () => {
-        setLoading(true);
-        try {
-            const response = await api.get('/professores', {
-                params: {
-                    page: currentPage,
-                    limit: itemsPerPage,
-                    search: searchTerm,
-                }
-            });
-            setProfessores(response.data.professores);
-            setTotalProfessores(response.data.total);
-            setError(null);
-        } catch (err) {
-            setError("Não foi possível carregar os professores.");
-            showToast("Erro ao carregar professores.", 'error');
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    }, [currentPage, itemsPerPage, searchTerm, showToast]);
-
-    useEffect(() => {
-        fetchProfessores();
-    }, [fetchProfessores]);
-
-    // --- Handlers de Ações ---
-    const handleOpenFormModal = (professor = null) => {
-        setSelectedProfessor(professor);
-        setIsFormModalOpen(true);
+    const handleOpenFormModal = (prof = null) => {
+        setCurrentProfessor(prof);
+        setFormModalOpen(true);
     };
 
-    const handleOpenConfirmModal = (professor) => {
-        setSelectedProfessor(professor);
-        setIsConfirmModalOpen(true);
-    };
-
-    const handleCloseModals = () => {
-        setIsFormModalOpen(false);
-        setIsConfirmModalOpen(false);
-        setSelectedProfessor(null);
+    const handleOpenDetailsModal = (prof) => {
+        setCurrentProfessor(prof);
+        setDetailsModalOpen(true);
     };
     
-    // ** PONTO CRÍTICO DA CORREÇÃO **
-    // A função foi reescrita para enviar FormData, necessário para upload de foto e lista de cursos.
-    const handleSaveProfessor = async (formData, professorId) => {
-        try {
-            if (professorId) {
-                // Atualização
-                await api.put(`/professores/${professorId}`, formData, {
-                    headers: { 'Content-Type': 'multipart/form-data' }
-                });
-                showToast('Professor atualizado com sucesso!', 'success');
-            } else {
-                // Criação
-                await api.post('/professores', formData, {
-                     headers: { 'Content-Type': 'multipart/form-data' }
-                });
-                showToast('Professor adicionado com sucesso!', 'success');
-            }
-            fetchProfessores();
-        } catch (error) {
-            const errorMessage = error.response?.data?.message || 'Erro ao salvar professor.';
-            showToast(errorMessage, 'error');
-            console.error("Erro ao salvar professor:", error);
-        } finally {
-            handleCloseModals();
-        }
+    const handleOpenConfirmModal = (prof) => {
+        setCurrentProfessor(prof);
+        setConfirmModalOpen(true);
     };
 
-    const handleDeleteProfessor = async () => {
-        if (!selectedProfessor) return;
-        try {
-            await api.delete(`/professores/${selectedProfessor.id}`);
-            showToast('Professor excluído com sucesso!', 'success');
-            fetchProfessores();
-        } catch (error) {
-            showToast('Erro ao excluir professor.', 'error');
-            console.error("Erro ao excluir professor:", error);
-        } finally {
-            handleCloseModals();
+    const handleSaveProfessor = (profData) => {
+        if (currentProfessor) {
+            setProfessores(professores.map(p => p.id === currentProfessor.id ? { ...p, ...profData } : p));
+            showToast('success', 'Professor atualizado com sucesso!');
+        } else {
+            const newProfessor = { id: Date.now(), ...profData, status: 'Ativo' };
+            setProfessores([newProfessor, ...professores]);
+            showToast('success', 'Professor adicionado com sucesso!');
         }
+        setFormModalOpen(false);
     };
+
+    const handleDeleteProfessor = () => {
+        setProfessores(professores.filter(p => p.id !== currentProfessor.id));
+        showToast('success', 'Professor excluído com sucesso!');
+        setConfirmModalOpen(false);
+    };
+
+    const filteredProfessores = useMemo(() => {
+        return professores.filter(prof => 
+            prof.nome.toLowerCase().includes(searchTerm.toLowerCase()) &&
+            (selectedCourse === '' || prof.cursos.includes(selectedCourse)) &&
+            (selectedLocal === '' || prof.local === selectedLocal)
+        );
+    }, [professores, searchTerm, selectedCourse, selectedLocal]);
     
-    const handleSearchChange = (e) => {
-        setSearchTerm(e.target.value);
-        setCurrentPage(1);
-    };
-
     return (
-        <div>
-            <h1 className="text-3xl font-bold text-text-default mb-6">Gestão de Professores</h1>
-
-            {/* Barra de Ações */}
-            <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
-                <input
-                    type="text"
-                    placeholder="Buscar professor..."
-                    value={searchTerm}
-                    onChange={handleSearchChange}
-                    className="w-full sm:max-w-xs px-4 py-2 border rounded-md bg-surface border-border focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-                <button
-                    onClick={() => handleOpenFormModal()}
-                    className="w-full sm:w-auto px-4 py-2 text-white bg-primary rounded-md hover:bg-primary-dark"
-                >
-                    Adicionar Professor
+        <>
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-text-default">Gerenciamento de Professores</h2>
+                <button onClick={() => handleOpenFormModal()} className="px-4 py-2 bg-primary text-white font-semibold rounded-lg shadow-sm hover:bg-primary-dark flex items-center">
+                    Novo Professor
                 </button>
             </div>
 
-            {/* Tabela de Professores */}
-            <div className="bg-surface rounded-lg shadow overflow-x-auto">
-                <table className="min-w-full divide-y divide-border">
-                    <thead className="bg-surface">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase">Foto</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase">Nome</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase">Email</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase">Cursos</th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-text-muted uppercase">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                        {loading ? (
-                            <tr><td colSpan="5" className="text-center py-4">Carregando...</td></tr>
-                        ) : error ? (
-                             <tr><td colSpan="5" className="text-center py-4 text-danger">{error}</td></tr>
-                        ) : professores.map((prof) => (
-                            <tr key={prof.id} className="hover:bg-border/50">
-                                <td className="px-6 py-4">
-                                    <img className="h-10 w-10 rounded-full object-cover" src={prof.foto_url || `https://ui-avatars.com/api/?name=${prof.nome}&background=333&color=fff`} alt={prof.nome} />
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-text-default">{prof.nome}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-text-muted">{prof.email}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-text-muted">
-                                    {prof.cursos?.map(c => c.nome).join(', ') || 'N/A'}
-                                </td>
-                                <td className="px-6 py-4 text-right">
-                                    <div className="flex justify-end space-x-2">
-                                        <button onClick={() => handleOpenFormModal(prof)} className="text-primary hover:text-primary-dark p-1 rounded-full hover:bg-primary/10">
-                                            <PencilIcon />
-                                        </button>
-                                        <button onClick={() => handleOpenConfirmModal(prof)} className="text-danger hover:text-red-700 p-1 rounded-full hover:bg-danger/10">
-                                            <TrashIcon />
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-                 {!loading && !error && professores.length === 0 && (
-                    <div className="text-center py-10 text-text-muted">Nenhum professor encontrado.</div>
-                )}
+            <div className="p-4 bg-surface rounded-lg shadow-sm border border-border mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <input type="text" placeholder="Pesquisar por nome..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full px-3 py-2 border border-border rounded-lg bg-surface" />
+                    <select value={selectedCourse} onChange={e => setSelectedCourse(e.target.value)} className="w-full px-3 py-2 border border-border rounded-lg bg-surface">
+                        <option value="">Todos os Cursos</option>
+                        {allCoursesList.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                     <select value={selectedLocal} onChange={e => setSelectedLocal(e.target.value)} className="w-full px-3 py-2 border border-border rounded-lg bg-surface">
+                        <option value="">Todos os Locais</option>
+                        {allLocaisList.map(l => <option key={l} value={l}>{l}</option>)}
+                    </select>
+                </div>
             </div>
 
-            <Pagination
-                currentPage={currentPage}
-                totalItems={totalProfessores}
-                itemsPerPage={itemsPerPage}
-                onPageChange={setCurrentPage}
-            />
-
-            <ProfessorFormModal
-                isOpen={isFormModalOpen}
-                onClose={handleCloseModals}
-                onSave={handleSaveProfessor}
-                professor={selectedProfessor}
-            />
-            <ConfirmationModal
-                isOpen={isConfirmModalOpen}
-                onClose={handleCloseModals}
-                onConfirm={handleDeleteProfessor}
-                title="Confirmar Exclusão"
-                message={`Tem certeza que deseja excluir o professor ${selectedProfessor?.nome}?`}
-            />
-        </div>
+            <div className="bg-surface rounded-lg shadow-sm overflow-hidden border border-border">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-50 dark:bg-surface/30 text-xs uppercase text-text-muted">
+                            <tr>
+                                <th className="px-6 py-3">Professor</th>
+                                <th className="px-6 py-3">Cursos</th>
+                                <th className="px-6 py-3">Local</th>
+                                <th className="px-6 py-3 text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredProfessores.map(prof => (
+                                <tr key={prof.id} className="border-b border-border hover:bg-gray-50 dark:hover:bg-gray-50/10">
+                                    <td className="px-6 py-4 font-medium">{prof.nome}</td>
+                                    <td className="px-6 py-4">{prof.cursos.join(', ')}</td>
+                                    <td className="px-6 py-4">{prof.local}</td>
+                                    <td className="px-6 py-4 text-center">
+                                        <div className="hidden md:flex items-center justify-center space-x-2">
+                                            <button onClick={() => handleOpenDetailsModal(prof)} className="p-2 text-gray-500 hover:bg-gray-200 rounded-full" title="Detalhes"><DetailsIcon/></button>
+                                            <button onClick={() => handleOpenFormModal(prof)} className="p-2 text-blue-600 hover:bg-blue-100 rounded-full" title="Editar"><EditIcon/></button>
+                                            <button onClick={() => handleOpenConfirmModal(prof)} className="p-2 text-danger hover:bg-red-100 rounded-full" title="Excluir"><DeleteIcon/></button>
+                                        </div>
+                                        <div className="md:hidden">
+                                            <KebabMenu>
+                                                <button onClick={() => handleOpenDetailsModal(prof)} className="w-full text-left flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                    <DetailsIcon /> Detalhes
+                                                </button>
+                                                <button onClick={() => handleOpenFormModal(prof)} className="w-full text-left flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                    <EditIcon /> Editar
+                                                </button>
+                                                <button onClick={() => handleOpenConfirmModal(prof)} className="w-full text-left flex items-center px-4 py-2 text-sm text-danger hover:bg-red-50">
+                                                    <DeleteIcon /> Excluir
+                                                </button>
+                                            </KebabMenu>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <ProfessorFormModal isOpen={isFormModalOpen} onClose={() => setFormModalOpen(false)} onSave={handleSaveProfessor} professor={currentProfessor} />
+            <ProfessorDetailsModal isOpen={isDetailsModalOpen} onClose={() => setDetailsModalOpen(false)} professor={currentProfessor} />
+            <ConfirmationModal isOpen={isConfirmModalOpen} onClose={() => setConfirmModalOpen(false)} onConfirm={handleDeleteProfessor} title="Confirmar exclusão?" message="Esta ação não poderá ser desfeita."/>
+        </>
     );
 };
 
