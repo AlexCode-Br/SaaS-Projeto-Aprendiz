@@ -1,189 +1,239 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
-import Modal from '../../components/Modal';
+
+// --- Componentes ---
+import Pagination from '../../components/Pagination';
+import Modal from '../../components/Modal'; // Usando o modal genérico
 import ConfirmationModal from '../../components/ConfirmationModal';
+import { PencilIcon, TrashIcon } from '../../components/icons';
 
-// Ícones
-const EditIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>;
-const DeleteIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>;
-
-const Cursos = () => {
-    const [courses, setCourses] = useState([]);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [isLoading, setIsLoading] = useState(true);
-    
-    // Estados dos Modais
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [currentCourse, setCurrentCourse] = useState(null); // Para edição ou exclusão
-
-    const showToast = useToast();
-
-    // Busca os cursos da API
-    const fetchCourses = async () => {
-        setIsLoading(true);
-        try {
-            const { data } = await api.get('/cursos');
-            setCourses(data);
-        } catch (error) {
-            showToast('Erro ao carregar cursos.', 'error');
-            console.error(error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+// --- Componente de Formulário (interno para simplicidade) ---
+const CursoForm = ({ curso, onSave, onCancel }) => {
+    const [formData, setFormData] = useState({
+        nome: '',
+        descricao: '',
+        carga_horaria: ''
+    });
 
     useEffect(() => {
-        fetchCourses();
-    }, []);
+        if (curso) {
+            setFormData({
+                nome: curso.nome || '',
+                descricao: curso.descricao || '',
+                carga_horaria: curso.carga_horaria || ''
+            });
+        } else {
+            setFormData({ nome: '', descricao: '', carga_horaria: '' });
+        }
+    }, [curso]);
 
-    // Filtra os cursos com base na busca
-    const filteredCourses = useMemo(() => 
-        courses.filter(course => 
-            course.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            course.descricao.toLowerCase().includes(searchTerm.toLowerCase())
-        ), [courses, searchTerm]);
-
-    // Funções para manipular os modais
-    const handleOpenModal = (course = null) => {
-        setCurrentCourse(course);
-        setIsModalOpen(true);
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleCloseModal = () => {
-        setIsModalOpen(false);
-        setCurrentCourse(null);
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onSave(formData);
     };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <input
+                type="text"
+                name="nome"
+                value={formData.nome}
+                onChange={handleChange}
+                placeholder="Nome do Curso"
+                required
+                className="w-full px-3 py-2 border rounded-md bg-surface border-border focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <textarea
+                name="descricao"
+                value={formData.descricao}
+                onChange={handleChange}
+                placeholder="Descrição"
+                rows="4"
+                className="w-full px-3 py-2 border rounded-md bg-surface border-border focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <input
+                type="number"
+                name="carga_horaria"
+                value={formData.carga_horaria}
+                onChange={handleChange}
+                placeholder="Carga Horária (horas)"
+                required
+                className="w-full px-3 py-2 border rounded-md bg-surface border-border focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <div className="flex justify-end space-x-4 pt-4">
+                <button type="button" onClick={onCancel} className="px-4 py-2 rounded-md text-text-default bg-surface border border-border hover:bg-border">Cancelar</button>
+                <button type="submit" className="px-4 py-2 rounded-md text-white bg-primary hover:bg-primary-dark">Salvar</button>
+            </div>
+        </form>
+    );
+};
+
+
+// --- Componente Principal da Página ---
+const Cursos = () => {
+    const [cursos, setCursos] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalCursos, setTotalCursos] = useState(0);
+    const [itemsPerPage] = useState(10);
+
+    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+    const [selectedCurso, setSelectedCurso] = useState(null);
     
-    const handleOpenDeleteModal = (course) => {
-        setCurrentCourse(course);
-        setIsDeleteModalOpen(true);
-    };
+    const [searchTerm, setSearchTerm] = useState('');
 
-    const handleCloseDeleteModal = () => {
-        setIsDeleteModalOpen(false);
-        setCurrentCourse(null);
-    };
+    const { showToast } = useToast();
 
-    // Função para salvar (criar ou editar) um curso
-    const handleSaveCourse = async (event) => {
-        event.preventDefault();
-        const formData = new FormData(event.target);
-        const courseData = Object.fromEntries(formData.entries());
-
-        const apiCall = currentCourse 
-            ? api.put(`/cursos/${currentCourse.id}`, courseData)
-            : api.post('/cursos', courseData);
-
+    const fetchCursos = useCallback(async () => {
+        setLoading(true);
         try {
-            await apiCall;
-            showToast(`Curso ${currentCourse ? 'atualizado' : 'criado'} com sucesso!`);
-            handleCloseModal();
-            fetchCourses(); // Recarrega a lista de cursos
+            const response = await api.get('/cursos', {
+                params: { page: currentPage, limit: itemsPerPage, search: searchTerm }
+            });
+            setCursos(response.data.cursos);
+            setTotalCursos(response.data.total);
+        } catch (err) {
+            setError("Não foi possível carregar os cursos.");
+            showToast("Erro ao carregar cursos.", 'error');
+        } finally {
+            setLoading(false);
+        }
+    }, [currentPage, itemsPerPage, searchTerm, showToast]);
+
+    useEffect(() => {
+        fetchCursos();
+    }, [fetchCursos]);
+
+    const handleOpenFormModal = (curso = null) => {
+        setSelectedCurso(curso);
+        setIsFormModalOpen(true);
+    };
+
+    const handleOpenConfirmModal = (curso) => {
+        setSelectedCurso(curso);
+        setIsConfirmModalOpen(true);
+    };
+
+    const handleCloseModals = () => {
+        setIsFormModalOpen(false);
+        setIsConfirmModalOpen(false);
+        setSelectedCurso(null);
+    };
+
+    const handleSaveCurso = async (formData) => {
+        try {
+            if (selectedCurso?.id) {
+                await api.put(`/cursos/${selectedCurso.id}`, formData);
+                showToast('Curso atualizado com sucesso!', 'success');
+            } else {
+                await api.post('/cursos', formData);
+                showToast('Curso criado com sucesso!', 'success');
+            }
+            fetchCursos();
         } catch (error) {
             showToast('Erro ao salvar curso.', 'error');
-            console.error(error);
+        } finally {
+            handleCloseModals();
         }
     };
-    
-    // Função para deletar um curso
-    const handleDeleteCourse = async () => {
-        if (!currentCourse) return;
+
+    const handleDeleteCurso = async () => {
+        if (!selectedCurso) return;
         try {
-            await api.delete(`/cursos/${currentCourse.id}`);
-            showToast('Curso excluído com sucesso!');
-            handleCloseDeleteModal();
-            fetchCourses(); // Recarrega a lista
+            await api.delete(`/cursos/${selectedCurso.id}`);
+            showToast('Curso excluído com sucesso!', 'success');
+            fetchCursos();
         } catch (error) {
             showToast('Erro ao excluir curso.', 'error');
-            console.error(error);
+        } finally {
+            handleCloseModals();
         }
     };
 
     return (
-        <>
-            {/* Cabeçalho da Página e Ações */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 animate-fade-in-up">
-                <h2 className="text-2xl font-bold text-text-default mb-4 sm:mb-0">Gerenciamento de Cursos</h2>
-                <button onClick={() => handleOpenModal()} className="px-4 py-2 bg-primary text-white font-semibold rounded-lg shadow-md hover:bg-primary-dark transition-colors">
-                    Adicionar Novo Curso
+        <div>
+            <h1 className="text-3xl font-bold text-text-default mb-6">Gestão de Cursos</h1>
+            
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
+                <input
+                    type="text"
+                    placeholder="Buscar curso..."
+                    value={searchTerm}
+                    onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                    className="w-full sm:max-w-xs px-4 py-2 border rounded-md bg-surface border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <button onClick={() => handleOpenFormModal()} className="w-full sm:w-auto px-4 py-2 text-white bg-primary rounded-md hover:bg-primary-dark">
+                    Adicionar Curso
                 </button>
             </div>
 
-            {/* Filtros */}
-            <div className="bg-surface p-4 rounded-lg border border-border mb-6 animate-fade-in-up delay-100">
-                <input 
-                    type="text" 
-                    placeholder="Pesquisar por nome ou descrição..." 
-                    value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition bg-transparent"
-                />
-            </div>
-
-            {/* Tabela de Cursos */}
-            <div className="bg-surface rounded-lg shadow-sm border border-border overflow-hidden animate-fade-in-up delay-200">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left text-text-default">
-                        <thead className="bg-gray-50 dark:bg-surface/30 text-xs uppercase text-text-muted">
-                            <tr>
-                                <th scope="col" className="px-6 py-3">Nome do Curso</th>
-                                <th scope="col" className="px-6 py-3">Descrição</th>
-                                <th scope="col" className="px-6 py-3 text-center">Ações</th>
+            <div className="bg-surface rounded-lg shadow overflow-x-auto">
+                <table className="min-w-full divide-y divide-border">
+                    <thead className="bg-surface">
+                        <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase">Nome</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase">Descrição</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase">Carga Horária</th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-text-muted uppercase">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                        {loading ? (
+                            <tr><td colSpan="4" className="text-center py-4">Carregando...</td></tr>
+                        ) : error ? (
+                            <tr><td colSpan="4" className="text-center py-4 text-danger">{error}</td></tr>
+                        ) : cursos.map((curso) => (
+                            <tr key={curso.id} className="hover:bg-border/50">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-text-default">{curso.nome}</td>
+                                <td className="px-6 py-4 text-sm text-text-muted max-w-sm truncate">{curso.descricao}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-text-muted">{curso.carga_horaria}h</td>
+                                <td className="px-6 py-4 text-right">
+                                     <div className="flex justify-end space-x-2">
+                                        <button onClick={() => handleOpenFormModal(curso)} className="text-primary hover:text-primary-dark p-1 rounded-full hover:bg-primary/10">
+                                            <PencilIcon />
+                                        </button>
+                                        <button onClick={() => handleOpenConfirmModal(curso)} className="text-danger hover:text-red-700 p-1 rounded-full hover:bg-danger/10">
+                                            <TrashIcon />
+                                        </button>
+                                    </div>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            {isLoading ? (
-                                <tr><td colSpan="3" className="text-center p-6">Carregando...</td></tr>
-                            ) : filteredCourses.length === 0 ? (
-                                <tr><td colSpan="3" className="text-center p-6 text-text-muted">Nenhum curso encontrado.</td></tr>
-                            ) : (
-                                filteredCourses.map(course => (
-                                    <tr key={course.id} className="border-b border-border hover:bg-gray-50 dark:hover:bg-gray-50/10 transition-colors">
-                                        <td className="px-6 py-4 font-medium">{course.nome}</td>
-                                        <td className="px-6 py-4">{course.descricao}</td>
-                                        <td className="px-6 py-4 text-center">
-                                            <div className="flex justify-center items-center space-x-2">
-                                                <button onClick={() => handleOpenModal(course)} className="p-2 text-text-muted hover:text-primary transition-colors"><EditIcon /></button>
-                                                <button onClick={() => handleOpenDeleteModal(course)} className="p-2 text-text-muted hover:text-danger transition-colors"><DeleteIcon /></button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                        ))}
+                    </tbody>
+                </table>
+                 {!loading && !error && cursos.length === 0 && (
+                    <div className="text-center py-10 text-text-muted">Nenhum curso encontrado.</div>
+                )}
             </div>
 
-            {/* Modal de Adicionar/Editar Curso */}
-            <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={currentCourse ? 'Editar Curso' : 'Adicionar Novo Curso'}>
-                <form onSubmit={handleSaveCourse} className="space-y-4">
-                    <div>
-                        <label htmlFor="nome" className="block text-sm font-medium text-text-muted mb-1">Nome do Curso</label>
-                        <input type="text" id="nome" name="nome" defaultValue={currentCourse?.nome || ''} required className="w-full px-3 py-2 border border-border rounded-lg bg-transparent focus:ring-2 focus:ring-primary/50 transition" />
-                    </div>
-                    <div>
-                        <label htmlFor="descricao" className="block text-sm font-medium text-text-muted mb-1">Descrição</label>
-                        <textarea id="descricao" name="descricao" rows="4" defaultValue={currentCourse?.descricao || ''} required className="w-full px-3 py-2 border border-border rounded-lg bg-transparent focus:ring-2 focus:ring-primary/50 transition"></textarea>
-                    </div>
-                    <div className="flex justify-end space-x-4 pt-4">
-                         <button type="button" onClick={handleCloseModal} className="px-4 py-2 rounded-lg text-text-default bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 transition">Cancelar</button>
-                         <button type="submit" className="px-4 py-2 rounded-lg text-white bg-primary hover:bg-primary-dark transition">Salvar</button>
-                    </div>
-                </form>
-            </Modal>
-            
-            {/* Modal de Confirmação de Exclusão */}
-            <ConfirmationModal 
-                isOpen={isDeleteModalOpen}
-                onClose={handleCloseDeleteModal}
-                onConfirm={handleDeleteCourse}
-                title="Confirmar Exclusão"
-                message={`Tem certeza de que deseja excluir o curso "${currentCourse?.nome}"? Esta ação não pode ser desfeita.`}
+            <Pagination
+                currentPage={currentPage}
+                totalItems={totalCursos}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
             />
-        </>
+
+            <Modal isOpen={isFormModalOpen} onClose={handleCloseModals} title={selectedCurso ? 'Editar Curso' : 'Adicionar Curso'}>
+                <CursoForm curso={selectedCurso} onSave={handleSaveCurso} onCancel={handleCloseModals} />
+            </Modal>
+
+            <ConfirmationModal
+                isOpen={isConfirmModalOpen}
+                onClose={handleCloseModals}
+                onConfirm={handleDeleteCurso}
+                title="Confirmar Exclusão"
+                message={`Tem certeza que deseja excluir o curso ${selectedCurso?.nome}?`}
+            />
+        </div>
     );
 };
 

@@ -1,173 +1,179 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
+import { useToast } from '../../contexts/ToastContext';
+import CustomSelect from '../../components/CustomSelect';
 
-// --- Ícones SVG ---
-const SaveIcon = () => <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>;
+const ProfessorFrequencia = () => {
+    // --- Estados ---
+    const [cursos, setCursos] = useState([]);
+    const [selectedCurso, setSelectedCurso] = useState(null);
+    const [dataAula, setDataAula] = useState(new Date().toISOString().split('T')[0]);
+    const [alunos, setAlunos] = useState([]);
+    const [frequencias, setFrequencias] = useState({}); // { alunoId: 'presente' }
+    const [loading, setLoading] = useState(false);
+    const [loadingAlunos, setLoadingAlunos] = useState(false);
 
-const Frequencia = () => {
-    // Estado para a data, alunos, registros de frequência e controle de UI
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-    const [students, setStudents] = useState([]);
-    const [attendance, setAttendance] = useState({});
-    const [loading, setLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
-    const [error, setError] = useState(null);
-    const [successMessage, setSuccessMessage] = useState('');
+    const { showToast } = useToast();
 
-    // Busca os alunos do professor e a frequência para a data selecionada
-    const fetchDataForDate = useCallback(async (date) => {
-        setLoading(true);
-        setError(null);
-        setSuccessMessage('');
-        try {
-            // 1. Busca a lista de alunos do professor logado
-            const studentsResponse = await api.get('/api/professores/me/alunos');
-            const myStudents = studentsResponse.data.alunos || [];
-            setStudents(myStudents);
-
-            // 2. Busca registros de frequência existentes para a data
-            const attendanceResponse = await api.get(`/api/frequencia/${date}`);
-            const existingRecords = attendanceResponse.data;
-
-            // 3. Prepara o estado da frequência
-            const initialAttendance = {};
-            myStudents.forEach(student => {
-                const record = existingRecords.find(r => r.aluno_id === student.id);
-                // Por padrão, marca como ausente se não houver registro
-                initialAttendance[student.id] = record ? record.status : 'falta';
-            });
-            setAttendance(initialAttendance);
-
-        } catch (err) {
-            setError('Falha ao carregar os dados. Verifique a data e tente novamente.');
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    // Efeito para buscar dados quando a data muda
+    // Carrega os cursos do professor logado
     useEffect(() => {
-        if (selectedDate) {
-            fetchDataForDate(selectedDate);
-        }
-    }, [selectedDate, fetchDataForDate]);
+        const fetchCursos = async () => {
+            try {
+                const response = await api.get('/professores/meus-cursos'); // Rota específica do professor
+                setCursos(response.data.map(c => ({ value: c.id, label: c.nome })));
+            } catch (error) {
+                showToast('Erro ao carregar seus cursos.', 'error');
+            }
+        };
+        fetchCursos();
+    }, [showToast]);
 
-    // Manipulador para alterar o status de frequência de um aluno
-    const handleAttendanceChange = (studentId, status) => {
-        setAttendance(prev => ({
-            ...prev,
-            [studentId]: status,
-        }));
+    // Busca os alunos e suas frequências ao mudar o curso ou a data
+    const fetchAlunosEFrequencia = useCallback(async () => {
+        if (!selectedCurso || !dataAula) {
+            setAlunos([]);
+            return;
+        }
+        setLoadingAlunos(true);
+        try {
+            const params = { curso_id: selectedCurso.value, data: dataAula };
+            const response = await api.get('/frequencia', { params });
+            
+            setAlunos(response.data);
+
+            // Preenche o estado de frequências com os dados recebidos
+            const initialFrequencias = response.data.reduce((acc, aluno) => {
+                acc[aluno.id] = aluno.status || 'presente'; // 'presente' como padrão
+                return acc;
+            }, {});
+            setFrequencias(initialFrequencias);
+
+        } catch (error) {
+            showToast('Erro ao carregar alunos e frequências.', 'error');
+            setAlunos([]);
+        } finally {
+            setLoadingAlunos(false);
+        }
+    }, [selectedCurso, dataAula, showToast]);
+
+    useEffect(() => {
+        fetchAlunosEFrequencia();
+    }, [fetchAlunosEFrequencia]);
+
+    // --- Handlers ---
+    const handleFrequenciaChange = (alunoId, status) => {
+        setFrequencias(prev => ({ ...prev, [alunoId]: status }));
     };
 
-    // Manipulador para salvar todos os registros de frequência
-    const handleSaveAttendance = async () => {
-        setIsSaving(true);
-        setError(null);
-        setSuccessMessage('');
+    const handleSalvarFrequencia = async () => {
+        if (!selectedCurso || alunos.length === 0) {
+            showToast('Selecione um curso e carregue os alunos primeiro.', 'warning');
+            return;
+        }
+        setLoading(true);
 
+        // Prepara os dados para a API
         const payload = {
-            data_aula: selectedDate,
-            frequencias: Object.entries(attendance).map(([aluno_id, status]) => ({
+            curso_id: selectedCurso.value,
+            data_aula: dataAula,
+            frequencias: Object.entries(frequencias).map(([aluno_id, status]) => ({
                 aluno_id: parseInt(aluno_id, 10),
-                status,
-            })),
+                status
+            }))
         };
-
+        
         try {
-            await api.post('/api/frequencia', payload);
-            setSuccessMessage('Frequência salva com sucesso!');
-        } catch (err) {
-            setError('Ocorreu um erro ao salvar a frequência. Tente novamente.');
-            console.error(err);
+            await api.post('/frequencia', payload);
+            showToast('Frequência salva com sucesso!', 'success');
+            // Re-busca os dados para garantir que a UI esteja atualizada
+            fetchAlunosEFrequencia();
+        } catch (error) {
+            showToast('Erro ao salvar frequência.', 'error');
         } finally {
-            setIsSaving(false);
+            setLoading(false);
         }
     };
 
     return (
-        <div className="fade-in-up">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-                <div>
-                    <h2 className="text-2xl font-bold text-text-default">Lançamento de Frequência</h2>
-                    <p className="text-text-muted mt-1">Selecione a data da aula para registrar a presença dos alunos.</p>
+        <div>
+            <h1 className="text-3xl font-bold text-text-default mb-6">Lançamento de Frequência</h1>
+
+            {/* Filtros */}
+            <div className="p-6 bg-surface rounded-lg shadow mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <CustomSelect
+                        options={cursos}
+                        value={selectedCurso}
+                        onChange={setSelectedCurso}
+                        placeholder="Selecione um curso..."
+                    />
+                    <input
+                        type="date"
+                        value={dataAula}
+                        onChange={(e) => setDataAula(e.target.value)}
+                        className="w-full px-3 py-2 border rounded-md bg-surface border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
                 </div>
             </div>
 
-            <div className="bg-surface rounded-lg shadow-sm border border-border">
-                <div className="p-6 border-b border-border flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                    <div>
-                        <label htmlFor="class-date" className="block text-sm font-medium text-text-muted mb-1">Data da Aula</label>
-                        <input
-                            type="date"
-                            id="class-date"
-                            value={selectedDate}
-                            onChange={e => setSelectedDate(e.target.value)}
-                            className="px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition bg-transparent"
-                        />
-                    </div>
-                </div>
-
-                {loading ? (
-                    <div className="p-10 text-center text-text-muted">Carregando alunos...</div>
-                ) : error ? (
-                    <div className="p-10 text-center text-red-500">{error}</div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left text-text-default">
-                            <thead className="bg-gray-50 dark:bg-gray-50/10 text-xs uppercase text-text-muted">
-                                <tr>
-                                    <th scope="col" className="px-6 py-3">Aluno</th>
-                                    <th scope="col" className="px-6 py-3 text-center">Presente</th>
-                                    <th scope="col" className="px-6 py-3 text-center">Falta</th>
-                                    <th scope="col" className="px-6 py-3 text-center">Falta Justificada</th>
+            {/* Tabela de Frequência */}
+            <div className="bg-surface rounded-lg shadow overflow-x-auto">
+                 <table className="min-w-full divide-y divide-border">
+                    <thead className="bg-surface">
+                        <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase">Aluno</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                       {loadingAlunos ? (
+                            <tr><td colSpan="2" className="text-center py-4">Carregando alunos...</td></tr>
+                        ) : !selectedCurso ? (
+                            <tr><td colSpan="2" className="text-center py-10 text-text-muted">Por favor, selecione um curso para começar.</td></tr>
+                        ) : alunos.length > 0 ? (
+                            alunos.map((aluno) => (
+                                <tr key={aluno.id} className="hover:bg-border/50">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-text-default">{aluno.nome}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex items-center space-x-4">
+                                            {['presente', 'ausente', 'justificado'].map((status) => (
+                                                <label key={status} className="flex items-center space-x-2 cursor-pointer">
+                                                    <input
+                                                        type="radio"
+                                                        name={`frequencia-${aluno.id}`}
+                                                        value={status}
+                                                        checked={frequencias[aluno.id] === status}
+                                                        onChange={() => handleFrequenciaChange(aluno.id, status)}
+                                                        className="form-radio h-4 w-4 text-primary"
+                                                    />
+                                                    <span className="text-sm capitalize">{status}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                {students.map(student => (
-                                    <tr key={student.id} className="border-b border-border hover:bg-gray-50 dark:hover:bg-gray-50/5">
-                                        <td className="px-6 py-4 font-medium">{student.nome}</td>
-                                        <td className="px-6 py-4 text-center">
-                                            <input type="radio" name={`freq-${student.id}`} value="presente"
-                                                checked={attendance[student.id] === 'presente'}
-                                                onChange={() => handleAttendanceChange(student.id, 'presente')}
-                                                className="form-radio h-5 w-5 text-primary focus:ring-primary/50" />
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <input type="radio" name={`freq-${student.id}`} value="falta"
-                                                checked={attendance[student.id] === 'falta'}
-                                                onChange={() => handleAttendanceChange(student.id, 'falta')}
-                                                className="form-radio h-5 w-5 text-primary focus:ring-primary/50" />
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <input type="radio" name={`freq-${student.id}`} value="falta_justificada"
-                                                checked={attendance[student.id] === 'falta_justificada'}
-                                                onChange={() => handleAttendanceChange(student.id, 'falta_justificada')}
-                                                className="form-radio h-5 w-5 text-primary focus:ring-primary/50" />
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-                
-                {successMessage && <div className="m-6 p-4 text-sm text-green-700 bg-green-100 rounded-lg dark:bg-green-800/30 dark:text-green-300">{successMessage}</div>}
-                
-                <div className="p-6 border-t border-border bg-gray-50 dark:bg-surface/30 flex justify-end">
+                            ))
+                        ) : (
+                             <tr><td colSpan="2" className="text-center py-10 text-text-muted">Nenhum aluno encontrado para este curso.</td></tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Botão de Salvar */}
+            {alunos.length > 0 && (
+                <div className="mt-6 flex justify-end">
                     <button
-                        onClick={handleSaveAttendance}
-                        disabled={isSaving || loading || students.length === 0}
-                        className="w-full sm:w-auto px-6 py-2 bg-primary text-white font-semibold rounded-lg shadow-sm hover:bg-primary-dark transition-colors flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
+                        onClick={handleSalvarFrequencia}
+                        disabled={loading}
+                        className="px-8 py-3 text-white bg-primary rounded-md hover:bg-primary-dark disabled:opacity-50"
                     >
-                        <SaveIcon />
-                        {isSaving ? 'Salvando...' : 'Salvar Frequência'}
+                        {loading ? 'Salvando...' : 'Salvar Frequência'}
                     </button>
                 </div>
-            </div>
+            )}
         </div>
     );
 };
 
-export default Frequencia;
+export default ProfessorFrequencia;

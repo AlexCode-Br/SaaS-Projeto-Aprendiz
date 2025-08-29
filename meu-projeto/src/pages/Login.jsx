@@ -1,101 +1,120 @@
-import React, { useState, useContext } from 'react';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { AuthContext } from '../contexts/AuthContext';
-import logo from '../assets/logo_projeto_aprendiz.png';
+import React, { useState } from 'react';
+// CORREÇÃO: Adicionado 'Link' à importação
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
+import Logo from '../assets/logo_projeto_aprendiz.png';
 
-// Ícones como componentes para melhor legibilidade
-const EyeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>;
-const EyeOffIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path><line x1="2" x2="22" y1="2" y2="22"></line></svg>;
+const EyeOpenIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+    </svg>
+);
+
+const EyeClosedIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7 .946-3.013 3.42-5.32 6.542-6.15M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 2l20 20" />
+    </svg>
+);
 
 const Login = () => {
-    const [email, setEmail] = useState('gestor@projetoaprendiz.com'); // Valor padrão para facilitar testes
-    const [password, setPassword] = useState('admin123'); // Valor padrão para facilitar testes
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [error, setError] = useState('');
+    const [rememberMe, setRememberMe] = useState(false);
     const [loading, setLoading] = useState(false);
     
-    const { login } = useContext(AuthContext);
+    const navigate = useNavigate();
+    const { login } = useAuth();
+    const { showToast } = useToast();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError('');
         setLoading(true);
-
         try {
-            await login(email, password);
-            // A navegação será tratada pelo AuthContext
-        } catch (err) {
-            setError(err.message || 'Credenciais incorretas. Tente novamente.');
+            const { role } = await login(email, password);
+            showToast('Login bem-sucedido!', 'success');
+            
+            const redirectPath = role === 'gestor' ? '/gestor/dashboard' : '/professor/dashboard';
+            navigate(redirectPath);
+
+        } catch (error) {
+            const errorMessage = error.response?.data?.message || 'Credenciais inválidas. Tente novamente.';
+            showToast(errorMessage, 'error');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="flex min-h-screen items-center justify-center p-4 bg-bg-end dark:bg-bg-start">
-            <div className="w-full max-w-md">
-                <div className="text-center mb-8">
-                    <img
-                        src={logo}
-                        alt="Logo Projeto Aprendiz"
-                        className="h-20 mx-auto bg-primary p-4 rounded-2xl shadow-lg"
+        <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-bg-start to-bg-end px-4">
+            <div className="w-full max-w-md p-8 space-y-8 bg-surface rounded-xl shadow-md fade-in-up">
+                <div className="text-center">
+                    <img 
+                        className="h-20 mx-auto bg-primary p-4 rounded-2xl shadow-lg" 
+                        src={Logo} 
+                        alt="Logo Projeto Aprendiz" 
                     />
+                    <h2 className="mt-6 text-2xl font-bold text-text-default">
+                        Acesse sua conta
+                    </h2>
                 </div>
+                <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+                    <div className="relative">
+                        <input
+                            id="email" name="email" type="email" autoComplete="email" required value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="block w-full px-4 py-3 text-text-default bg-surface border border-border rounded-md appearance-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                            placeholder="Email"
+                        />
+                    </div>
+                    
+                    <div className="relative">
+                        <input
+                            id="password" name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" required value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="block w-full px-4 py-3 text-text-default bg-surface border border-border rounded-md appearance-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                            placeholder="Senha"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute inset-y-0 right-0 flex items-center px-4 text-text-muted"
+                        >
+                            {showPassword ? <EyeOpenIcon /> : <EyeClosedIcon />}
+                        </button>
+                    </div>
 
-                <div className="bg-surface p-8 sm:p-10 rounded-2xl shadow-md border border-border">
-                    <h2 className="text-3xl font-bold text-center text-text-default mb-2">Bem-vindo!</h2>
-                    <p className="text-center text-text-muted mb-8">Faça login para continuar.</p>
-
-                    {error && (
-                        <div className="bg-danger/10 border border-danger/50 text-danger px-4 py-3 rounded-lg relative mb-6 text-center" role="alert">
-                            <span className="block sm:inline">{error}</span>
-                        </div>
-                    )}
-
-                    <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-                        <div className="relative">
-                            <label htmlFor="email" className="block text-sm font-medium text-text-muted mb-1">Email</label>
-                             <div className="relative">
-                                <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-                                </span>
-                                <input id="email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full pl-10 pr-3 py-2 bg-transparent border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition" />
-                            </div>
-                        </div>
-
-                        <div className="relative">
-                             <label htmlFor="password" className="block text-sm font-medium text-text-muted mb-1">Senha</label>
-                            <div className="relative">
-                                <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                                   <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-                                </span>
-                                <input id="password" name="password" type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full pl-10 pr-10 py-2 bg-transparent border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition" />
-                                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-text-muted hover:text-text-default" aria-label="Mostrar/Esconder senha">
-                                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center justify-between text-sm">
-                            <label className="flex items-center space-x-2 cursor-pointer text-text-muted">
-                                <input id="remember-me" name="remember-me" type="checkbox" className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" />
-                                <span>Lembrar-me</span>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                            <input 
+                                id="remember-me" name="remember-me" type="checkbox" checked={rememberMe}
+                                onChange={(e) => setRememberMe(e.target.checked)}
+                                className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                            />
+                            <label htmlFor="remember-me" className="ml-2 block text-sm text-text-muted">
+                                Lembrar-me
                             </label>
-                            <Link to="/reset-password" className="font-medium text-primary hover:text-primary-dark">Esqueceu a senha?</Link>
                         </div>
+                        <div className="text-sm">
+                            <Link to="/reset-password" className="font-medium text-primary hover:text-primary-dark">
+                                Esqueceu a senha?
+                            </Link>
+                        </div>
+                    </div>
 
-                        <div>
-                            <button type="submit" disabled={loading} className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-base font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 transition-colors">
-                                {loading ? 'Entrando...' : 'Entrar'}
-                            </button>
-                        </div>
-                    </form>
-                </div>
-                <footer className="text-center mt-8">
-                    <p className="text-sm text-text-muted">
-                        Versão 1.0.0
-                    </p>
-                </footer>
+                    <div>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="group relative flex justify-center w-full px-4 py-3 text-sm font-semibold text-white bg-primary rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-dark disabled:opacity-50"
+                        >
+                            {loading ? 'Entrando...' : 'Entrar'}
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     );

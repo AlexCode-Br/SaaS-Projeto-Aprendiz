@@ -1,15 +1,17 @@
-import React, { useContext } from 'react';
+import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, AuthContext } from './contexts/AuthContext.jsx';
 import { ToastProvider } from './contexts/ToastContext.jsx';
 import MainLayout from './layouts/MainLayout.jsx';
 import PrivateRoute from './components/PrivateRoute.jsx';
 
-// Páginas Públicas
+// --- Páginas ---
+
+// Públicas
 import Login from './pages/Login.jsx';
 import ResetPassword from './pages/ResetPassword.jsx';
 
-// Páginas do Gestor
+// Gestor
 import GestorDashboard from './pages/gestor/Dashboard.jsx';
 import Cursos from './pages/gestor/Cursos.jsx';
 import Alunos from './pages/gestor/Alunos.jsx';
@@ -18,7 +20,7 @@ import GestorRelatorios from './pages/gestor/Relatorios.jsx';
 import GestorInformativos from './pages/gestor/Informativos.jsx';
 import GestorSuporte from './pages/gestor/Suporte.jsx';
 
-// Páginas do Professor
+// Professor
 import ProfessorDashboard from './pages/professor/ProfessorDashboard.jsx';
 import ProfessorAlunos from './pages/professor/ProfessorAlunos.jsx';
 import ProfessorFrequencia from './pages/professor/ProfessorFrequencia.jsx';
@@ -26,67 +28,102 @@ import ProfessorRelatorios from './pages/professor/ProfessorRelatorios.jsx';
 import ProfessorInformativos from './pages/professor/ProfessorInformativos.jsx';
 import ProfessorSuporte from './pages/professor/ProfessorSuporte.jsx';
 
-// Página de Configurações (Partilhada)
-import Configuracoes from './pages/gestor/Configuracoes.jsx';
+// Comum
+import Configuracoes from './pages/gestor/Configuracoes.jsx'; // Usando o mesmo para ambos por simplicidade
+import ProfessorConfiguracoes from './pages/professor/ProfessorConfiguracoes.jsx';
 
-const NotFound = () => <div className="p-6 text-center"><h1>404 - Página Não Encontrada</h1></div>;
+// --- Componentes Auxiliares ---
 
+const NotFound = () => (
+    <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+            <h1 className="text-4xl font-bold text-text-default">404</h1>
+            <p className="text-text-muted">Página Não Encontrada</p>
+        </div>
+    </div>
+);
+
+// Redireciona o usuário para o dashboard correto após o login
 const DashboardRedirector = () => {
-    const { user } = useContext(AuthContext);
-    if (!user) return <Navigate to="/login" />;
+    const { user } = React.useContext(AuthContext);
+    if (!user) return <Navigate to="/login" replace />;
     
-    const dashboardPath = user.role === 'gestor' ? '/gestor/dashboard' : '/professor/dashboard';
+    const dashboardPath = user.role === 'gestor' 
+        ? '/gestor/dashboard' 
+        : '/professor/dashboard';
+        
     return <Navigate to={dashboardPath} replace />;
 };
 
-const AppRoutes = () => (
-    <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        
-        <Route 
-            path="/*"
-            element={
-                <PrivateRoute>
-                    <MainLayout>
-                        <Routes>
-                            <Route path="/" element={<DashboardRedirector />} />
-                            
-                            {/* Rotas do Gestor */}
-                            <Route path="/gestor/dashboard" element={<GestorDashboard />} />
-                            <Route path="/gestor/cursos" element={<Cursos />} />
-                            <Route path="/gestor/alunos" element={<Alunos />} />
-                            <Route path="/gestor/professores" element={<Professores />} />
-                            <Route path="/gestor/relatorios" element={<GestorRelatorios />} />
-                            <Route path="/gestor/informativos" element={<GestorInformativos />} />
-                            <Route path="/gestor/suporte" element={<GestorSuporte />} />
-                            
-                            {/* Rotas do Professor */}
-                            <Route path="/professor/dashboard" element={<ProfessorDashboard />} />
-                            <Route path="/professor/alunos" element={<ProfessorAlunos />} />
-                            <Route path="/professor/frequencia" element={<ProfessorFrequencia />} />
-                            <Route path="/professor/relatorios" element={<ProfessorRelatorios />} />
-                            <Route path="/professor/informativos" element={<ProfessorInformativos />} />
-                            <Route path="/professor/suporte" element={<ProfessorSuporte />} />
-                            
-                            <Route path="/configuracoes" element={<Configuracoes />} />
 
-                            <Route path="*" element={<NotFound />} />
-                        </Routes>
-                    </MainLayout>
-                </PrivateRoute>
-            } 
-        />
-    </Routes>
-);
+// --- Roteador Principal ---
+
+const AppRoutes = () => {
+    const { user } = React.useContext(AuthContext);
+
+    const commonRoutes = (
+        <>
+            <Route path="/configuracoes" element={user?.role === 'gestor' ? <Configuracoes /> : <ProfessorConfiguracoes />} />
+        </>
+    );
+
+    const gestorRoutes = (
+        <>
+            <Route path="/gestor/dashboard" element={<GestorDashboard />} />
+            <Route path="/gestor/cursos" element={<Cursos />} />
+            <Route path="/gestor/alunos" element={<Alunos />} />
+            <Route path="/gestor/professores" element={<Professores />} />
+            <Route path="/gestor/relatorios" element={<GestorRelatorios />} />
+            <Route path="/gestor/informativos" element={<GestorInformativos />} />
+            <Route path="/gestor/suporte" element={<GestorSuporte />} />
+        </>
+    );
+
+    const professorRoutes = (
+        <>
+            <Route path="/professor/dashboard" element={<ProfessorDashboard />} />
+            <Route path="/professor/alunos" element={<ProfessorAlunos />} />
+            <Route path="/professor/frequencia" element={<ProfessorFrequencia />} />
+            <Route path="/professor/relatorios" element={<ProfessorRelatorios />} />
+            <Route path="/professor/informativos" element={<ProfessorInformativos />} />
+            <Route path="/professor/suporte" element={<ProfessorSuporte />} />
+        </>
+    );
+
+    return (
+        <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            
+            <Route 
+                path="/*"
+                element={
+                    <PrivateRoute>
+                        <MainLayout>
+                            <Routes>
+                                <Route path="/" element={<DashboardRedirector />} />
+                                
+                                {user?.role === 'gestor' && gestorRoutes}
+                                {user?.role === 'professor' && professorRoutes}
+                                {commonRoutes}
+
+                                <Route path="*" element={<NotFound />} />
+                            </Routes>
+                        </MainLayout>
+                    </PrivateRoute>
+                } 
+            />
+        </Routes>
+    );
+}
 
 function App() {
     return (
-        <ToastProvider>
-            <AuthProvider>
+        <AuthProvider>
+            <ToastProvider>
                 <AppRoutes />
-            </AuthProvider>
-        </ToastProvider>
+            </ToastProvider>
+        </AuthProvider>
     );
 }
 

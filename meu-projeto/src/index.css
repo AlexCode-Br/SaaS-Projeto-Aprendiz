@@ -67,13 +67,7 @@
     opacity: 0;
 }
 
-.delay-100 { animation-delay: 100ms; }
-.delay-200 { animation-delay: 200ms; }
-.delay-300 { animation-delay: 300ms; }
-.delay-400 { animation-delay: 400ms; }
-.delay-500 { animation-delay: 500ms; }
-
-/* Estilos para a barra de rolagem (opcional, mas melhora a estética) */
+/* Estilos para a barra de rolagem */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: #f1f1f1; }
 ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
@@ -83,14 +77,13 @@
 .dark ::-webkit-scrollbar-thumb { background: #555; }
 .dark ::-webkit-scrollbar-thumb:hover { background: #777; }
 
-
-/* --- ADIÇÃO PARA CORRIGIR O TOGGLE --- */
+/* Componente de Toggle Switch customizado */
 @layer components {
     .toggle-checkbox {
         @apply transition-transform duration-300 ease-in-out;
     }
     .toggle-checkbox:checked {
-        transform: translateX(calc(100% - 4px)); /* Move o círculo para a direita */
+        transform: translateX(calc(100% - 4px));
         @apply border-primary;
     }
     .toggle-checkbox:checked + .toggle-label {
@@ -100,4 +93,3 @@
         @apply transition-colors duration-300 ease-in-out;
     }
 }
-/* --- FIM DA ADIÇÃO --- */
